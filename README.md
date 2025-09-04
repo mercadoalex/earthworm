@@ -1,7 +1,11 @@
 # Earthworm Project
 
 ## Overview
-The Earthworm project is designed to monitor the heartbeat signals of Kubernetes clusters using eBPF (Extended Berkeley Packet Filter) technology. The project visualizes this heartbeat data in a web-based interface, resembling a cardiogram, allowing users to monitor the health of their Kubernetes environments effectively. The name "Earthworm" symbolizes the project's ability to manage multiple "hearts" (Kubernetes clusters) simultaneously.
+The Earthworm project is designed to monitor the heartbeat signals of Kubernetes clusters using eBPF (Extended Berkeley Packet Filter) technology. The project visualizes this heartbeat data in a web-based interface, resembling a cardiogram, allowing users to monitor the health of their Kubernetes environments effectively. The name "Earthworm" symbolizes the project's ability to manage multiple "hearts" (Kubernetes nodes ) simultaneously.
+
+## Kubernetes and Kernel version
+This project is designed to support Kubernetes v1.20 and later, as these versions provide stable APIs and features required for heartbeat monitoring and eBPF integration.
+For optimal results, use a recent Kubernetes release and ensure your nodes run a Linux kernel version 5.4 or newer (for optimal eBPF support).
 
 ## Project Structure
 The project is organized into several directories, each serving a specific purpose:
@@ -58,11 +62,21 @@ The project is organized into several directories, each serving a specific purpo
 The Earthworm project consists of the following components:
 - **eBPF Program**: Intercepts heartbeat signals from Kubernetes clusters and collects the data.
 - **Kubernetes Monitor**: Listens for heartbeat events using the Kubernetes API and forwards the data to the Go server.
-- **Go Server**: Receives heartbeat data from the Kubernetes monitor and serves it to the React UI.
+- **Go Server**: Receives heartbeat data from the Kubernetes monitor and serves it to the React UI.  
+  **Note:** Currently, the Go server uses in-memory storage for heartbeat events. In future versions, a real-time database (such as Redis, MongoDB with change streams, or Kafka) will be integrated to improve scalability and real-time data streaming.
 - **React UI**: Visualizes the heartbeat data in a graph format, providing real-time updates.
+
+
+### Deployment
+
+The delivery mechanism for the eBPF program will use a **Kubernetes DaemonSet**. This ensures that the eBPF loader and monitoring agent run on every node in the cluster, allowing Earthworm to intercept heartbeat signals from all nodes efficiently. The DaemonSet can be packaged and deployed using a Helm chart for easy installation and management.
+
 
 ## Conclusion
 The Earthworm project provides a comprehensive solution for monitoring Kubernetes cluster health through innovative use of eBPF technology. By visualizing heartbeat data, users can gain insights into the performance and reliability of their Kubernetes environments. This project serves as an educational resource for understanding eBPF, Kubernetes, and modern web application development.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+Alejandro Mercado Peña

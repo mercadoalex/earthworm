@@ -1,75 +1,54 @@
 package main
 
 import (
-    "encoding/json"
-    "net/http"
-    "sync"
+	"encoding/json"
+	"log"
+	"net/http"
+	"sync"
+	"time"
 )
 
-// HeartbeatData represents the structure of the heartbeat data received from the Kubernetes monitor.
-type HeartbeatData struct {
-    ClusterName string `json:"cluster_name"` // Name of the Kubernetes cluster
-    Timestamp   int64  `json:"timestamp"`    // Timestamp of the heartbeat signal
-    Status      string `json:"status"`       // Status of the cluster (e.g., healthy, unhealthy)
+// Heartbeat represents a heartbeat event from a Kubernetes node.
+type Heartbeat struct {
+	NodeName  string    `json:"nodeName"`
+	Timestamp time.Time `json:"timestamp"`
+	Status    string    `json:"status"`
 }
 
-// Server holds the state of the HTTP server and the heartbeat data.
-type Server struct {
-    mu      sync.Mutex             // Mutex to protect shared data
-    data    []HeartbeatData        // Slice to store received heartbeat data
+// In-memory storage for heartbeat events.
+var (
+	heartbeats []Heartbeat
+	mu         sync.Mutex
+)
+
+// Handler to receive heartbeat data (POST).
+func heartbeatHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var hb Heartbeat
+	if err := json.NewDecoder(r.Body).Decode(&hb); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	mu.Lock()
+	heartbeats = append(heartbeats, hb)
+	mu.Unlock()
+	w.WriteHeader(http.StatusCreated)
 }
 
-// NewServer initializes a new Server instance.
-func NewServer() *Server {
-    return &Server{
-        data: make([]HeartbeatData, 0), // Initialize the data slice
-    }
+// Handler to serve heartbeat data (GET).
+func getHeartbeatsHandler(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(heartbeats)
 }
 
-// handleHeartbeat is the HTTP handler for receiving heartbeat data.
-func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
-    // Only allow POST requests
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-
-    var heartbeat HeartbeatData
-    // Decode the JSON body into the HeartbeatData struct
-    if err := json.NewDecoder(r.Body).Decode(&heartbeat); err != nil {
-        http.Error(w, "Bad request", http.StatusBadRequest)
-        return
-    }
-
-    // Lock the mutex to safely update the shared data
-    s.mu.Lock()
-    s.data = append(s.data, heartbeat) // Append the new heartbeat data
-    s.mu.Unlock()
-
-    // Respond with a success message
-    w.WriteHeader(http.StatusAccepted)
-}
-
-// getHeartbeats is the HTTP handler for retrieving the heartbeat data.
-func (s *Server) getHeartbeats(w http.ResponseWriter, r *http.Request) {
-    s.mu.Lock()
-    defer s.mu.Unlock() // Ensure the mutex is unlocked after the function completes
-
-    // Encode the current heartbeat data as JSON and send it in the response
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(s.data)
-}
-
-// main function initializes the server and starts listening for requests.
 func main() {
-    server := NewServer() // Create a new server instance
-
-    // Set up HTTP routes
-    http.HandleFunc("/heartbeat", server.handleHeartbeat) // Endpoint to receive heartbeat data
-    http.HandleFunc("/heartbeats", server.getHeartbeats)   // Endpoint to retrieve heartbeat data
-
-    // Start the HTTP server on port 8080
-    if err := http.ListenAndServe(":8080", nil); err != nil {
-        panic(err) // Panic if the server fails to start
-    }
+	http.HandleFunc("/api/heartbeat", heartbeatHandler)
+	http.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
+	log.Println("Earthworm server running on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

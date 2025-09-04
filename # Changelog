@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+- Initial heartbeat monitoring implementation.
+- In-memory storage for heartbeat events.
+- REST API endpoints for posting and retrieving heartbeats.
+
+## [0.1.0] - 2025-09-03
+### Added
+- First public release.
+- Go server with heartbeat API.
+- Basic React UI for cardiogram visualization.
+- eBPF program stub.
