@@ -1,0 +1,37 @@
+{
+  "name": "earthworm",
+  "version": "1.0.0",
+  "description": "An eBPF program that intercepts the heartbeat of Kubernetes clusters and visualizes the data in a web-based graph resembling a cardiogram.",
+  "main": "src/server/main.go",
+  "scripts": {
+    "start": "tsc && go run src/server/main.go",
+    "build": "tsc",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "axios": "^0.21.1",
+    "chart.js": "^2.9.4",
+    "react-chartjs-2": "^2.11.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.1.2",
+    "@types/react": "^17.0.0",
+    "@types/react-dom": "^17.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/earthworm.git"
+  },
+  "keywords": [
+    "eBPF",
+    "Kubernetes",
+    "monitoring",
+    "visualization",
+    "heartbeat",
+    "react"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
