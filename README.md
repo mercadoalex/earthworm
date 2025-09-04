@@ -16,7 +16,31 @@ The project is organized into several directories, each serving a specific purpo
 - **src/server**: The Go server that receives heartbeat data and serves it to the UI.
 - **src/types**: Defines TypeScript types and interfaces used throughout the project.
 
+earthworm/
+├── README.md
+├── CHANGELOG.md
+├── .gitignore
+├── src/
+│   ├── ebpf/
+│   │   └── heartbeat.c           # eBPF program for heartbeat interception
+│   ├── kubernetes/
+│   │   └── monitor.go            # Go client for Kubernetes heartbeat events
+│   ├── server/
+│   │   └── main.go               # Go server with in-memory heartbeat storage
+│   ├── ui/
+│   │   ├── App.tsx               # React app entry point
+│   │   └── components/
+│   │       └── CardiogramGraph.tsx # Cardiogram visualization component
+│   └── types/
+│       └── index.ts              # Shared TypeScript types
+├── package.json                  # Node.js dependencies for UI
+├── tsconfig.json                 # TypeScript config for UI
+├── go.mod                        # Go module file
+├── go.sum                        # Go dependencies checksum
+
+
 ## Getting Started
+
 
 ### Prerequisites
 - Go (version 1.16 or later)
