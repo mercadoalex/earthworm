@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// coordinationclient "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
@@ -63,9 +64,22 @@ func (hm *HeartbeatMonitor) StartMonitoring() {
 		for event := range watcher.ResultChan() {
 			switch event.Type {
 			case watch.Added, watch.Modified:
+				pod, ok := event.Object.(*corev1.Pod)
+				if ok {
+					fmt.Println(pod.Name)
+				}
+				if !ok {
+					log.Printf("unexpected type: %T", event.Object)
+					return
+				}
+				log.Printf("Pod added/modified: %s", pod.Name)
 				hm.handleHeartbeat(event.Object)
 			case watch.Deleted:
-				log.Printf("Pod deleted: %s", event.Object.GetName())
+				if obj, ok := event.Object.(metav1.Object); ok {
+					log.Printf("Pod deleted: %s", obj.GetName())
+				} else {
+					log.Printf("unexpected type: %T", event.Object)
+				}
 			}
 		}
 	}()
@@ -73,7 +87,7 @@ func (hm *HeartbeatMonitor) StartMonitoring() {
 
 // handleHeartbeat processes the heartbeat data from the Kubernetes event.
 func (hm *HeartbeatMonitor) handleHeartbeat(obj interface{}) {
-	pod, ok := obj.(*v1.Pod)
+	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		log.Printf("unexpected type: %T", obj)
 		return

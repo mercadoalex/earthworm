@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -61,6 +62,12 @@ func getHeartbeatsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	logFile, err := os.OpenFile("earthworm.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	log.SetOutput(logFile)
+
 	// Start HTTP server for heartbeat API
 	http.HandleFunc("/api/heartbeat", heartbeatHandler)
 	http.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
