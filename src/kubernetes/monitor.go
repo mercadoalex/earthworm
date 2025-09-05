@@ -5,18 +5,16 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	coordinationclient "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	// coordinationclient "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
 // HeartbeatMonitor is a struct that holds the Kubernetes client and the channel for heartbeat data.
@@ -64,14 +62,9 @@ func (hm *HeartbeatMonitor) StartMonitoring() {
 	go func() {
 		for event := range watcher.ResultChan() {
 			switch event.Type {
-			case watch.Added:
-				// Handle added pod event
-				hm.handleHeartbeat(event.Object)
-			case watch.Modified:
-				// Handle modified pod event
+			case watch.Added, watch.Modified:
 				hm.handleHeartbeat(event.Object)
 			case watch.Deleted:
-				// Handle deleted pod event
 				log.Printf("Pod deleted: %s", event.Object.GetName())
 			}
 		}
@@ -80,14 +73,11 @@ func (hm *HeartbeatMonitor) StartMonitoring() {
 
 // handleHeartbeat processes the heartbeat data from the Kubernetes event.
 func (hm *HeartbeatMonitor) handleHeartbeat(obj interface{}) {
-	// Extract the pod name and status from the event object
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
 		log.Printf("unexpected type: %T", obj)
 		return
 	}
-
-	// Send the heartbeat data to the channel
 	heartbeatData := fmt.Sprintf("Pod: %s, Status: %s", pod.Name, pod.Status.Phase)
 	hm.heartbeatChannel <- heartbeatData
 	log.Printf("Heartbeat data sent: %s", heartbeatData)
@@ -108,7 +98,6 @@ func (hm *HeartbeatMonitor) WatchLeaseHeartbeats() {
 				log.Printf("unexpected type: %T", event.Object)
 				continue
 			}
-			// Each update to a Lease object is a node heartbeat
 			heartbeatData := fmt.Sprintf("Node: %s, Lease RenewTime: %v", lease.Name, lease.Spec.RenewTime)
 			hm.heartbeatChannel <- heartbeatData
 			log.Printf("Lease heartbeat: %s", heartbeatData)
@@ -137,42 +126,4 @@ var mockNodes = []string{
 // Function to list namespaces
 func ListNamespaces() []string {
 	return mockNamespaces
-}
-
-// Function to list nodes
-func ListNodes() []string {
-	return mockNodes
-}
-
-// MockNode represents a simulated Kubernetes node
-type MockNode struct {
-	Name      string
-	LastLease time.Time
-	Status    string
-}
-
-// GenerateMockNodes creates a slice of 50 mock nodes
-func GenerateMockNodes() []MockNode {
-	nodes := make([]MockNode, 50)
-	for i := 0; i < 50; i++ {
-		nodes[i] = MockNode{
-			Name:      fmt.Sprintf("node-%02d", i+1),
-			LastLease: time.Now().Add(-time.Duration(rand.Intn(10)) * time.Second),
-			Status:    "Ready",
-		}
-	}
-	return nodes
-}
-
-// SimulateHeartbeats randomly updates node lease times and status
-func SimulateHeartbeats(nodes []MockNode) {
-	for i := range nodes {
-		// Randomly simulate lease renewal and possible status changes
-		nodes[i].LastLease = time.Now().Add(-time.Duration(rand.Intn(10)) * time.Second)
-		if rand.Float32() < 0.05 {
-			nodes[i].Status = "NotReady"
-		} else {
-			nodes[i].Status = "Ready"
-		}
-	}
 }

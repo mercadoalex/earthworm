@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"earthworm/src/kubernetes"
 )
 
 // Heartbeat represents a heartbeat event from a Kubernetes node.
@@ -20,6 +23,17 @@ var (
 	heartbeats []Heartbeat
 	mu         sync.Mutex
 )
+
+// Dummy PodInfo slice for correlation testing
+var podInfos = []kubernetes.PodInfo{
+	{
+		PodName:      "demo-pod",
+		Namespace:    "default",
+		NodeName:     "node-01",
+		ContainerIDs: []string{"node-01"},
+		CgroupPaths:  []string{"/sys/fs/cgroup/kubepods/node-01"},
+	},
+}
 
 // Handler to receive heartbeat data (POST).
 func heartbeatHandler(w http.ResponseWriter, r *http.Request) {
@@ -47,8 +61,22 @@ func getHeartbeatsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Start HTTP server for heartbeat API
 	http.HandleFunc("/api/heartbeat", heartbeatHandler)
 	http.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
 	log.Println("Earthworm server running on :8080")
+
+	// Generate 50 mock nodes
+	nodes := kubernetes.GenerateMockNodes()
+
+	// Simulate eBPF activity and print correlation results
+	kubernetes.SimulateEBPFActivity(nodes, podInfos)
+
+	// Optionally, print summary of generated nodes
+	fmt.Println("\nSummary of mock nodes:")
+	for _, node := range nodes {
+		fmt.Printf("Node: %s, LastLease: %v, Status: %s\n", node.Name, node.LastLease.Format("15:04:05"), node.Status)
+	}
+
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

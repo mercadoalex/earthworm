@@ -61,12 +61,21 @@ func SimulateEBPFActivity(nodes []MockNode, podInfos []PodInfo) {
 	events := GenerateMockEBPFEvents(nodes, 100)
 	for _, event := range events {
 		fmt.Printf("Simulated eBPF event: PID=%d, PPID=%d, Comm=%s, cgroup=%s, Time=%v\n",
-			event.PID, event.PPID, string(event.Comm[:]), string(event.CgroupPath[:]), time.Unix(0, int64(event.Timestamp)))
-		pod := CorrelateEBPFEvent(podInfos, string(event.CgroupPath[:]))
+			event.PID, event.PPID, bytesToString(event.Comm[:]), bytesToString(event.CgroupPath[:]), time.Unix(0, int64(event.Timestamp)))
+		pod := CorrelateEBPFEvent(podInfos, bytesToString(event.CgroupPath[:]))
 		if pod != nil {
 			fmt.Printf("→ Correlated to pod: %s (namespace: %s, node: %s)\n", pod.PodName, pod.Namespace, pod.NodeName)
 		} else {
 			fmt.Println("→ No matching pod found for eBPF event")
 		}
 	}
+}
+
+// bytesToString safely converts a byte array to string, trimming trailing nulls
+func bytesToString(b []byte) string {
+	n := 0
+	for n < len(b) && b[n] != 0 {
+		n++
+	}
+	return string(b[:n])
 }

@@ -1,7 +1,6 @@
 // lease_monitor.go
 // This file provides functions to list pods and nodes, extract container IDs and cgroup paths,
 // and correlate eBPF process info (cgroup path or container ID) with Kubernetes pods or nodes.
-
 package kubernetes
 
 import (
@@ -96,7 +95,7 @@ func CorrelateEBPFEvent(podInfos []PodInfo, cgroupPath string) *PodInfo {
 	return nil
 }
 
-// Example usage
+// Example usage (for demonstration only, not for production)
 func ExampleCorrelate() {
 	kubeconfig := "/path/to/kubeconfig"
 	clientset, err := GetKubeClient(kubeconfig)
