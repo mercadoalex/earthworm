@@ -4,11 +4,26 @@
 // The data is sent to user space via a perf event array for further correlation with Kubernetes resources.
 
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
-#include <linux/sched.h>
-#include <linux/version.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
+
+// BIG WARNING: The following typedefs are ONLY FOR TESTING PURPOSES.
+// They should NOT be used in production. Use proper kernel headers in production environments!
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long long u64;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+typedef signed long long s64;
+typedef u8 uint8_t;
+typedef u16 uint16_t;
+typedef u32 uint32_t;
+typedef s8 int8_t;
+typedef s16 int16_t;
+typedef s32 int32_t;
+// END OF TESTING-ONLY TYPEDEFS
 
 // Kernel version check macro
 #ifndef LINUX_VERSION_CODE
