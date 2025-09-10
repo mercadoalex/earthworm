@@ -12,9 +12,13 @@ The project is organized into several directories, each serving a specific purpo
 
 - **src/ebpf**: Contains the eBPF program that intercepts heartbeat signals from Kubernetes clusters.
 - **src/kubernetes**: Implements a Kubernetes client that listens for heartbeat events and forwards the data to the server.
-- **src/ui**: The React application that visualizes the heartbeat data.
 - **src/server**: The Go server that receives heartbeat data and serves it to the UI.
 - **src/types**: Defines TypeScript types and interfaces used throughout the project.
+- **src/heartbeat-visualizer**: Contains the heartbeat visualization logic, including:
+  - `src/heartbeat-visualizer/src/heartbeat.js`: Chart.js heartbeat visualizer.
+  - `src/heartbeat-visualizer/src/parseLeases.js`: Script to parse `leases.yaml` and generate `leases.json`.
+  - `src/heartbeat-visualizer/src/leases.json`: Parsed heartbeat data for visualization.
+  - `src/leases.yaml`: Raw heartbeat lease data in YAML format.
 
 earthworm/
 ├── README.md
@@ -22,21 +26,23 @@ earthworm/
 ├── .gitignore
 ├── src/
 │   ├── ebpf/
-│   │   └── heartbeat.c           # eBPF program for heartbeat interception
+│   │   └── heartbeat.c                # eBPF program for heartbeat interception
 │   ├── kubernetes/
-│   │   └── monitor.go            # Go client for Kubernetes heartbeat events
+│   │   └── monitor.go                 # Go client for Kubernetes heartbeat events
 │   ├── server/
-│   │   └── main.go               # Go server with in-memory heartbeat storage
-│   ├── ui/
-│   │   ├── App.tsx               # React app entry point
-│   │   └── components/
-│   │       └── CardiogramGraph.tsx # Cardiogram visualization component
-│   └── types/
-│       └── index.ts              # Shared TypeScript types
-├── package.json                  # Node.js dependencies for UI
-├── tsconfig.json                 # TypeScript config for UI
-├── go.mod                        # Go module file
-├── go.sum                        # Go dependencies checksum
+│   │   └── main.go                    # Go server with in-memory heartbeat storage
+│   ├── types/
+│   │   └── index.ts                   # Shared TypeScript types
+│   ├── heartbeat-visualizer/
+│   │   ├── src/
+│   │   │   ├── heartbeat.js           # Chart.js heartbeat visualizer
+│   │   │   ├── parseLeases.js         # YAML to JSON parser for heartbeat data
+│   │   │   └── leases.json            # Parsed heartbeat data for visualization
+│   └── leases.yaml                    # Raw heartbeat lease data in YAML format
+├── package.json                       # Node.js dependencies
+├── tsconfig.json                      # TypeScript config
+├── go.mod                             # Go module file
+├── go.sum                             # Go dependencies checksum
 
 
 ## Getting Started
@@ -78,7 +84,7 @@ earthworm/
 
 3. **Start the React application**:
    ```
-   cd src/ui
+   cd src/heart-visualizer
    npm start
    ```
 
@@ -102,8 +108,8 @@ The Earthworm project provides a comprehensive solution for monitoring Kubernete
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# Previw
+# Preview
 ![Earthworm Heartbeat Visualization](heartbeat_00.png)
 
 ## Author
-Alejandro Mercado Peña
+Alejandro Mercado Peña mercadoalex[at]gmail.com
