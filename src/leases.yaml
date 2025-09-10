@@ -1,0 +1,277 @@
+items:
+- metadata:
+    name: b858308c.awspca.cert-manager.io
+    namespace: aws-pca-issuer
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: operator.dapr.io
+    namespace: dapr-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: usvga93564eksp001-gitops-agent-reconciler-lease
+    namespace: harness-gitops
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:52:52.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ip-66-249-84-186.ec2.internal
+    namespace: kube-node-lease
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: amazon-network-policy-controller-k8s
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: apiserver-2bluekvwjl4wpya5wajdkkapxu
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: apiserver-jwxr5w7cjo532tvjotnxzczwx4
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: aws-load-balancer-controller-leader
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:54:05.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: cert-manager-cainjector-leader-election
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: cert-manager-controller
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: cloud-controller-manager
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: cluster-autoscaler
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: cp-vpc-resource-controller
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: ebs-csi-aws-com
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: eks-certificates-controller
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: eks-coredns-autoscaler
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: external-attacher-leader-ebs-csi-aws-com
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: external-resizer-ebs-csi-aws-com
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: external-snapshotter-leader-ebs-csi-aws-com
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: kms-storage-migrator-lease
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: kube-controller-manager
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: kube-scheduler
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
+- metadata:
+    name: snapshot-controller-leader
+    namespace: kube-system
+  spec:
+    renewTime: "2025-09-08T21:53:43.770974Z"
+    leaseDurationSeconds: 40
