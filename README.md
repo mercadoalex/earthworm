@@ -102,5 +102,8 @@ The Earthworm project provides a comprehensive solution for monitoring Kubernete
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+# Previw
+![Earthworm Heartbeat Visualization](heartbeat_00.png)
+
 ## Author
 Alejandro Mercado Peña
