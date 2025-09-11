@@ -9,127 +9,127 @@ items:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:53:43.770974Z"
+    renewTime: "2025-09-08T21:19:43.770974Z"
     leaseDurationSeconds: 40
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:53:59.770974Z"
+    renewTime: "2025-09-08T21:19:59.770974Z"
     leaseDurationSeconds: 40
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:09.770974Z"
+    renewTime: "2025-09-08T21:20:09.770974Z"
     leaseDurationSeconds: 40
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:19.770974Z"
+    renewTime: "2025-09-08T21:20:19.770974Z"
     leaseDurationSeconds: 40
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:29.770974Z"
+    renewTime: "2025-09-08T21:20:29.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:39.770974Z"
+    renewTime: "2025-09-08T21:20:39.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:49.770974Z"
+    renewTime: "2025-09-08T21:20:49.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:54:59.770974Z"
+    renewTime: "2025-09-08T21:20:59.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:09.770974Z"
+    renewTime: "2025-09-08T21:21:09.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:19.770974Z"
+    renewTime: "2025-09-08T21:21:19.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:29.770974Z"
+    renewTime: "2025-09-08T21:21:29.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:39.770974Z"
+    renewTime: "2025-09-08T21:21:39.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:49.770974Z"
+    renewTime: "2025-09-08T21:21:49.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:55:59.770974Z"
+    renewTime: "2025-09-08T21:21:59.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:56:59.770974Z"
+    renewTime: "2025-09-08T21:22:09.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:09.770974Z"
+    renewTime: "2025-09-08T21:22:19.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:19.770974Z"
+    renewTime: "2025-09-08T21:22:29.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:29.770974Z"
+    renewTime: "2025-09-08T21:22:39.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:39.770974Z"
+    renewTime: "2025-09-08T21:22:49.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:49.770974Z"
+    renewTime: "2025-09-08T21:22:59.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: operator.dapr.io
     namespace: dapr-system
   spec:
-    renewTime: "2025-09-08T21:57:59.770974Z"
+    renewTime: "2025-09-08T21:23:09.770974Z"
     leaseDurationSeconds: 4
 - metadata:
     name: usvga93564eksp001-gitops-agent-reconciler-lease
