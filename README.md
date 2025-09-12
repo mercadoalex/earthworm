@@ -113,3 +113,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Author
 Alejandro Mercado Peña mercadoalex[at]gmail.com
+
+
+# Update
+![Earthworm Heartbeat Visualization](heartbeat02.png)
