@@ -11,6 +11,7 @@ const HEARTBEAT_INTERVAL = 10000; // 10 seconds per heartbeat animation step
 
 // --- Color constants ---
 const NAMESPACE_COLOR = 'rgb(11, 238, 121)'; // Green for initial state
+const DEATH_COLOR = '#e00'; // Red for death events
 // Colors for hover/click (do not use green, yellow, red)
 const HOVER_COLORS = [
   'rgb(54, 162, 235)',   // blue
@@ -130,6 +131,90 @@ const HeartbeatChart = () => {
     }
   }
 
+  // Helper: returns true if any gap between consecutive y values is >10s and <40s (warning)
+  function hasWarning(data) {
+    if (!data || data.length < 2) return false;
+    for (let i = 1; i < data.length; i++) {
+      const gap = data[i].y - data[i - 1].y;
+      if (gap > 10000 && gap < 40000) return true;
+    }
+    return false;
+  }
+
+  // Helper: returns true if any gap between consecutive y values is >40s (death)
+  function hasDeath(data) {
+    if (!data || data.length < 2) return false;
+    for (let i = 1; i < data.length; i++) {
+      const gap = data[i].y - data[i - 1].y;
+      if (gap > 40000) return true;
+    }
+    return false;
+  }
+
+  // Helper to check if any namespace is in death state
+  function hasAnyDeath(leasesData) {
+    return Object.values(leasesData).some(data => {
+      if (!data || data.length < 2) return false;
+      for (let i = 1; i < data.length; i++) {
+        if (data[i].y - data[i - 1].y > 40000) return true;
+      }
+      return false;
+    });
+  }
+
+  // Continuous beep effect
+  useEffect(() => {
+    let beepInterval;
+    if (
+      noise &&
+      leasesData &&
+      typeof leasesData === 'object' &&
+      hasAnyDeath(leasesData) &&
+      audioRef.current
+    ) {
+      beepInterval = setInterval(() => {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }, 400);
+    }
+    return () => {
+      if (beepInterval) clearInterval(beepInterval);
+    };
+  }, [noise, leasesData]);
+
+  // Helper: get anomalies and deaths for summary panel
+  function getEvents(leasesData) {
+    if (!leasesData) return [];
+    const events = [];
+    Object.entries(leasesData).forEach(([ns, arr]) => {
+      if (!arr || arr.length < 2) return;
+      for (let i = 1; i < arr.length; i++) {
+        const gap = arr[i].y - arr[i - 1].y;
+        if (gap > 10000 && gap < 40000) {
+          events.push({
+            type: 'warning',
+            namespace: ns,
+            index: i,
+            gap,
+            from: arr[i - 1].y,
+            to: arr[i].y
+          });
+        }
+        if (gap > 40000) {
+          events.push({
+            type: 'death',
+            namespace: ns,
+            index: i,
+            gap,
+            from: arr[i - 1].y,
+            to: arr[i].y
+          });
+        }
+      }
+    });
+    return events;
+  }
+
   // --- 7. Legend renderer: namespace labels centered below the chart, clickable to show only one line ---
   const renderLegend = () => (
     <div
@@ -144,36 +229,42 @@ const HeartbeatChart = () => {
         overflow: 'hidden'
       }}
     >
-      {namespaces.map((ns, idx) => (
-        <span
-          key={ns}
-          onMouseEnter={() => setHoveredIdx(idx)}
-          onMouseLeave={() => setHoveredIdx(null)}
-          onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
-          style={{
-            color:
-              selectedIdx === idx
-                ? HOVER_COLORS[idx % HOVER_COLORS.length]
-                : hoveredIdx === idx
-                ? HOVER_COLORS[idx % HOVER_COLORS.length]
-                : NAMESPACE_COLOR,
-            fontWeight: selectedIdx === idx ? 'bold' : 'normal',
-            padding: '2px 8px',
-            borderRadius: '2px',
-            background: selectedIdx === idx ? '#222' : 'transparent',
-            fontSize: '0.85rem',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            flex: '0 1 auto',
-            textAlign: 'center',
-            transition: 'color 0.2s, background 0.2s',
-            cursor: 'pointer'
-          }}
-        >
-          {ns}
-        </span>
-      ))}
+      {namespaces.map((ns, idx) => {
+        const warning = hasWarning(leasesData[ns]);
+        const death = hasDeath(leasesData[ns]);
+        const color = death
+          ? DEATH_COLOR
+          : selectedIdx === idx
+          ? HOVER_COLORS[idx % HOVER_COLORS.length]
+          : hoveredIdx === idx
+          ? HOVER_COLORS[idx % HOVER_COLORS.length]
+          : NAMESPACE_COLOR;
+        return (
+          <span
+            key={ns}
+            onMouseEnter={() => setHoveredIdx(idx)}
+            onMouseLeave={() => setHoveredIdx(null)}
+            onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
+            style={{
+              color: color,
+              fontWeight: selectedIdx === idx ? 'bold' : 'normal',
+              padding: '2px 8px',
+              borderRadius: '2px',
+              background: selectedIdx === idx ? '#222' : 'transparent',
+              fontSize: '0.85rem',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              flex: '0 1 auto',
+              textAlign: 'center',
+              transition: 'color 0.2s, background 0.2s',
+              cursor: 'pointer'
+            }}
+          >
+            {ns} {death ? '💀' : warning ? '⚠️' : ''}
+          </span>
+        );
+      })}
     </div>
   );
 
@@ -214,24 +305,23 @@ const HeartbeatChart = () => {
       {/* Main chart UI */}
       {(step === 'animate' || step === 'pause') && (
         <>
-          {/* Controls bar (sound, language, restart) */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-            <ChartControls
-              noise={noise}
-              onNoiseToggle={() => setNoise(n => !n)}
-              language={'en'}
-              onLanguageToggle={() => {/* implement language logic if needed */}}
-              onRestart={() => {
-                //setCurrentHeartbeat(0);
-                setSelectedIdx(null);
-              }}
-              timestamp={chartData.length ? chartData[chartData.length - 1].timestamp : null}
-            />
-          </div>
+          {/* Controls bar (sound, language, restart, summary panel) */}
+          <ChartControls
+            noise={noise}
+            onNoiseToggle={() => setNoise(n => !n)}
+            language={'en'}
+            onLanguageToggle={() => {/* ... */}}
+            onRestart={() => {
+              setCurrentHeartbeat(0);
+              setSelectedIdx(null);
+            }}
+            timestamp={chartData.length ? chartData[chartData.length - 1].timestamp : null}
+            leasesData={leasesData}
+            events={getEvents(leasesData)} // Pass events to ChartControls
+          />
           {/* Heartbeat chart */}
           <LineChart width={1000} height={500} data={chartData}>
             <CartesianGrid stroke="#ccc" />
-            {/* XAxis: show time using 'timestamp' property from 'y' */}
             <XAxis
               dataKey="timestamp"
               tickFormatter={tick => {
@@ -257,23 +347,30 @@ const HeartbeatChart = () => {
               labelFormatter={label => `heartbeat: ${label}`}
             />
             {selectedIdx === null
-              ? namespaces.map(ns => (
-                  <Line
-                    key={ns}
-                    type="monotone"
-                    dataKey={ns}
-                    stroke={NAMESPACE_COLOR}
-                    dot={false}
-                    strokeWidth={2}
-                    isAnimationActive={false}
-                  />
-                ))
+              ? namespaces.map(ns => {
+                  const death = hasDeath(leasesData[ns]);
+                  return (
+                    <Line
+                      key={ns}
+                      type="monotone"
+                      dataKey={ns}
+                      stroke={death ? DEATH_COLOR : NAMESPACE_COLOR}
+                      dot={false}
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                    />
+                  );
+                })
               : (
                 <Line
                   key={namespaces[selectedIdx]}
                   type="monotone"
                   dataKey={namespaces[selectedIdx]}
-                  stroke={HOVER_COLORS[selectedIdx % HOVER_COLORS.length]}
+                  stroke={
+                    hasDeath(leasesData[namespaces[selectedIdx]])
+                      ? DEATH_COLOR
+                      : HOVER_COLORS[selectedIdx % HOVER_COLORS.length]
+                  }
                   dot={false}
                   strokeWidth={2}
                   isAnimationActive={false}
