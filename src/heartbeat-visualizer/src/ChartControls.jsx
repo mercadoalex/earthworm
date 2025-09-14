@@ -85,6 +85,7 @@ const ToggleNoise = ({ active, onToggle }) => (
     onClick={onToggle}
     title={active ? 'Disable sound' : 'Enable sound'}
   >
+    {/* Visual toggle bar */}
     <span style={{
       display: 'inline-block',
       width: '28px',
@@ -96,6 +97,7 @@ const ToggleNoise = ({ active, onToggle }) => (
       verticalAlign: 'middle',
       transition: 'background 0.2s'
     }}>
+      {/* Toggle knob */}
       <span style={{
         position: 'absolute',
         top: '2px',
@@ -136,8 +138,10 @@ const ChartControls = ({
   timestamp,
   leasesData
 }) => {
+  // Get all namespace keys from leasesData
   const namespaces = Object.keys(leasesData || {});
 
+  // Helper: returns true if any gap between consecutive y values is >40s (death)
   const hasDeath = (data) => {
     if (!data || data.length < 2) return false;
     for (let i = 1; i < data.length; i++) {
@@ -146,6 +150,7 @@ const ChartControls = ({
     return false;
   };
 
+  // Helper: returns true if any gap between consecutive y values is >10s and <40s (warning)
   const hasWarning = (data) => {
     if (!data || data.length < 2) return false;
     for (let i = 1; i < data.length; i++) {
@@ -155,6 +160,7 @@ const ChartControls = ({
     return false;
   };
 
+  // Get namespaces with death or warning events
   const deathNamespaces = namespaces.filter(ns => hasDeath(leasesData[ns]));
   const warningNamespaces = namespaces.filter(ns => hasWarning(leasesData[ns]));
 
@@ -163,13 +169,13 @@ const ChartControls = ({
       style={{
         display: 'flex',
         flexDirection: 'row',
+        //justifyContent: 'center',
         justifyContent: 'flex-end',
-        //justifyContent: 'center', // <-- center horizontally
         alignItems: 'center',
         marginBottom: '6px',
         maxWidth: '1000px',
-        marginLeft: 'auto',      // <-- center container
-        marginRight: 'auto'      // <-- center container
+        marginLeft: 'auto',
+        marginRight: 'auto'
       }}
     >
       {/* Anomaly Summary: flush left, no margin */}
@@ -179,31 +185,33 @@ const ChartControls = ({
           color: deathNamespaces.length > 0 ? '#e00' : (warningNamespaces.length > 0 ? '#ffcc00' : '#888'),
           borderRadius: '4px',
           padding: '8px 24px',
-          fontSize: '0.92rem', // <-- smaller font size
+          fontSize: '0.92rem',
           textAlign: 'left'
         }}>
           <strong style={{ marginRight: '12px', fontSize: '0.98rem' }}>Anomaly Summary:</strong>
+          {/* Death summary logic */}
           {deathNamespaces.length > 0 ? (
-            deathNamespaces.length === namespaces.length ? (
-              <span>
-                Several namespaces are death 💀💀💀💀
-              </span>
-            ) : deathNamespaces.length === 1 ? (
+            deathNamespaces.length === 1 ? (
+              // If only one namespace is failing, show its name and one skull
               <span>
                 Death detected in: <span style={{ fontWeight: 600 }}>{deathNamespaces[0]}</span> 💀
               </span>
             ) : (
+              // If multiple namespaces are failing, show count and that many skulls
               <span>
-                Multiple namespaces are dead 💀
+                {deathNamespaces.length} namespaces are failing{' '}
+                {Array(deathNamespaces.length).fill('💀').join('')}
               </span>
             )
           ) : warningNamespaces.length > 0 ? (
+            // If there are warnings, show warning summary
             <span>
               Warning detected in: {warningNamespaces.map(ns => (
                 <span key={ns} style={{ fontWeight: 600, marginRight: 8 }}>{ns} ⚠️</span>
               ))}
             </span>
           ) : (
+            // If no deaths or warnings, show default message
             <span style={{ color: '#aaa', fontSize: '0.92rem', marginLeft: '12px' }}>
               NO anomalies detected.
             </span>
@@ -218,6 +226,7 @@ const ChartControls = ({
           alignItems: 'center'
         }}
       >
+        {/* Date display */}
         <span style={{
           color: '#ccc',
           fontSize: '0.9rem',
@@ -227,16 +236,19 @@ const ChartControls = ({
         }}>
           {timestamp ? formatFullDate(timestamp) : ''}
         </span>
+        {/* Sound toggle */}
         <ToggleNoise
           active={noise}
           onToggle={onNoiseToggle}
         />
+        {/* Language toggle button */}
         <Button
           onClick={onLanguageToggle}
           style={buttonStyle}
           hoverStyle={buttonHoverStyle}
           label={`🌐 ${language === 'en' ? 'SP' : 'EN'}`}
         />
+        {/* Restart button */}
         <Button
           onClick={onRestart}
           style={{ ...buttonStyle, fontSize: '0.85rem', padding: '0.15rem 0.6rem', marginLeft: '12px' }}

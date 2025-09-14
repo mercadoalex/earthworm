@@ -27,6 +27,9 @@ const HOVER_COLORS = [
   'rgb(204, 102, 255)',  // light purple
 ];
 
+// --- Cluster name (should be loaded from config.yaml or API) ---
+const CLUSTER_NAME = 'production-us-west-1'; // Replace with dynamic value if needed
+
 const HeartbeatChart = () => {
   // --- State variables ---
   const [manifest, setManifest] = useState([]);
@@ -131,7 +134,7 @@ const HeartbeatChart = () => {
     }
   }
 
-  // Helper: returns true if any gap between consecutive y values is >10s and <40s (warning)
+  // --- Helper: returns true if any gap between consecutive y values is >10s and <40s (warning) ---
   function hasWarning(data) {
     if (!data || data.length < 2) return false;
     for (let i = 1; i < data.length; i++) {
@@ -141,7 +144,7 @@ const HeartbeatChart = () => {
     return false;
   }
 
-  // Helper: returns true if any gap between consecutive y values is >40s (death)
+  // --- Helper: returns true if any gap between consecutive y values is >40s (death) ---
   function hasDeath(data) {
     if (!data || data.length < 2) return false;
     for (let i = 1; i < data.length; i++) {
@@ -151,7 +154,7 @@ const HeartbeatChart = () => {
     return false;
   }
 
-  // Helper to check if any namespace is in death state
+  // --- Helper to check if any namespace is in death state ---
   function hasAnyDeath(leasesData) {
     return Object.values(leasesData).some(data => {
       if (!data || data.length < 2) return false;
@@ -162,7 +165,7 @@ const HeartbeatChart = () => {
     });
   }
 
-  // Continuous beep effect
+  // --- Continuous beep effect for death events ---
   useEffect(() => {
     let beepInterval;
     if (
@@ -182,7 +185,7 @@ const HeartbeatChart = () => {
     };
   }, [noise, leasesData]);
 
-  // Helper: get anomalies and deaths for summary panel
+  // --- Helper: get anomalies and deaths for summary panel ---
   function getEvents(leasesData) {
     if (!leasesData) return [];
     const events = [];
@@ -215,7 +218,7 @@ const HeartbeatChart = () => {
     return events;
   }
 
-  // --- 7. Legend renderer: namespace labels centered below the chart, clickable to show only one line ---
+  // --- Legend renderer: namespace labels centered below the chart, clickable to show only one line ---
   const renderLegend = () => (
     <div
       style={{
@@ -267,6 +270,43 @@ const HeartbeatChart = () => {
       })}
     </div>
   );
+
+  // --- Custom Tooltip renderer to show cluster name at the top ---
+  const CustomTooltip = (props) => {
+    // props.payload, props.label, etc. are provided by Recharts
+    if (!props.active || !props.payload || props.payload.length === 0) return null;
+    return (
+      <div style={{
+        background: '#222',
+        color: '#ccc',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '0.95rem',
+        padding: '10px 16px',
+        minWidth: '180px'
+      }}>
+        {/* Cluster name at the top */}
+        <div style={{
+          color: '#ccc',
+          fontWeight: 600,
+          fontSize: '0.98rem',
+          marginBottom: '6px',
+          textAlign: 'center'
+        }}>
+          {CLUSTER_NAME}
+        </div>
+        {/* Existing tooltip content */}
+        <div>
+          <strong>{props.labelFormatter ? props.labelFormatter(props.label) : props.label}</strong>
+        </div>
+        {props.payload.map((entry, idx) => (
+          <div key={idx} style={{ color: entry.stroke }}>
+            {entry.name}: {entry.value}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // --- Render logic ---
   return (
@@ -345,6 +385,7 @@ const HeartbeatChart = () => {
                     : NAMESPACE_COLOR
               }}
               labelFormatter={label => `heartbeat: ${label}`}
+              content={CustomTooltip} // <-- Use custom tooltip to show cluster name
             />
             {selectedIdx === null
               ? namespaces.map(ns => {
