@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import logo from './logo.svg'; // Make sure logo.svg is in the same directory
 
 // --- Button styles ---
 const buttonStyle = {
@@ -6,7 +7,9 @@ const buttonStyle = {
   padding: '0.15rem 0.4rem',
   background: '#222',
   color: '#ccc',
-  border: 'none',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: '#222', // Use longhand
   borderRadius: '2px',
   cursor: 'pointer',
   transition: 'background 0.2s, border-color 0.2s'
@@ -14,7 +17,7 @@ const buttonStyle = {
 
 const buttonHoverStyle = {
   background: '#333',
-  borderColor: '#22ff99'
+  borderColor: '#22ff99' // Only borderColor, no border shorthand
 };
 
 // --- Toggle switch style ---
@@ -136,7 +139,8 @@ const ChartControls = ({
   onLanguageToggle,
   onRestart,
   timestamp,
-  leasesData
+  leasesData,
+  onEbpfCorrelate // <-- Add this prop for the button handler
 }) => {
   // Get all namespace keys from leasesData
   const namespaces = Object.keys(leasesData || {});
@@ -164,61 +168,113 @@ const ChartControls = ({
   const deathNamespaces = namespaces.filter(ns => hasDeath(leasesData[ns]));
   const warningNamespaces = namespaces.filter(ns => hasWarning(leasesData[ns]));
 
+  // State for hover effect on eBPF button
+  const [ebpfHover, setEbpfHover] = useState(false);
+
+  // State to show/hide anomaly tooltip
+  const [showAnomalyTooltip, setShowAnomalyTooltip] = useState(false);
+
+  // Get anomalies data
+  const anomalies = getAnomalies(leasesData);
+
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'row',
-        //justifyContent: 'center',
         justifyContent: 'flex-end',
         alignItems: 'center',
         marginBottom: '6px',
         maxWidth: '1000px',
         marginLeft: 'auto',
-        marginRight: 'auto'
+        marginRight: 'auto',
+        position: 'relative' // Needed for absolute tooltip positioning
       }}
     >
-      {/* Anomaly Summary: flush left, no margin */}
-      <div style={{ marginRight: 0 }}>
+      {/* Anomaly Summary */}
+      <div style={{ marginRight: 0, position: 'relative' }}>
         <div style={{
           background: '#222',
           color: deathNamespaces.length > 0 ? '#e00' : (warningNamespaces.length > 0 ? '#ffcc00' : '#888'),
           borderRadius: '4px',
           padding: '8px 24px',
           fontSize: '0.92rem',
-          textAlign: 'left'
+          textAlign: 'left',
+          cursor: 'pointer'
         }}>
-          <strong style={{ marginRight: '12px', fontSize: '0.98rem' }}>Anomaly Summary:</strong>
-          {/* Death summary logic */}
+          <strong
+            style={{ marginRight: '12px', fontSize: '0.98rem', cursor: 'pointer' }}
+            onClick={() => setShowAnomalyTooltip(v => !v)}
+            title="Click to view anomaly details"
+          >
+            Anomaly Summary:
+          </strong>
           {deathNamespaces.length > 0 ? (
             deathNamespaces.length === 1 ? (
-              // If only one namespace is failing, show its name and one skull
               <span>
                 Death detected in: <span style={{ fontWeight: 600 }}>{deathNamespaces[0]}</span> 💀
               </span>
             ) : (
-              // If multiple namespaces are failing, show count and that many skulls
               <span>
                 {deathNamespaces.length} namespaces are failing{' '}
                 {Array(deathNamespaces.length).fill('💀').join('')}
               </span>
             )
           ) : warningNamespaces.length > 0 ? (
-            // If there are warnings, show warning summary
             <span>
               Warning detected in: {warningNamespaces.map(ns => (
                 <span key={ns} style={{ fontWeight: 600, marginRight: 8 }}>{ns} ⚠️</span>
               ))}
             </span>
           ) : (
-            // If no deaths or warnings, show default message
             <span style={{ color: '#aaa', fontSize: '0.92rem', marginLeft: '12px' }}>
               NO anomalies detected.
             </span>
           )}
         </div>
+        {/* Tooltip box for anomaly details */}
+        {showAnomalyTooltip && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '110%',
+              left: 0,
+              background: '#222',
+              color: '#ccc',
+              borderRadius: '4px',
+              boxShadow: '0 2px 12px #0008',
+              padding: '16px 24px',
+              minWidth: '260px',
+              zIndex: 10,
+              fontSize: '0.95rem'
+            }}
+          >
+            <div style={{
+              color: '#ccc',
+              fontWeight: 600,
+              fontSize: '0.98rem',
+              marginBottom: '8px',
+              textAlign: 'center'
+            }}>
+              Anomaly Details
+            </div>
+            {anomalies.length === 0 ? (
+              <div style={{ color: '#aaa', textAlign: 'center' }}>No anomalies found.</div>
+            ) : (
+              <ul style={{ paddingLeft: 0, margin: 0 }}>
+                {anomalies.map((a, idx) => (
+                  <li key={idx} style={{ marginBottom: 6, listStyle: 'none' }}>
+                    <span style={{ color: '#ffcc00', fontWeight: 600 }}>{a.namespace}</span>{' '}
+                    gap: <span style={{ color: '#e00' }}>{Math.round(a.gap / 1000)}s</span>{' '}
+                    at <span style={{ color: '#09f' }}>{new Date(a.to).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
-      {/* Controls bar: sound, language, restart, date */}
+      {/* Controls bar: sound, language, restart, date, eBPF button */}
       <div
         style={{
           display: 'flex',
@@ -255,6 +311,35 @@ const ChartControls = ({
           hoverStyle={buttonHoverStyle}
           label="Restart"
         />
+        {/* eBPF Correlation Button - placed at the right of Restart */}
+        <button
+          onClick={onEbpfCorrelate}
+          onMouseEnter={() => setEbpfHover(true)}
+          onMouseLeave={() => setEbpfHover(false)}
+          style={{
+            background: '#222',
+            border: 'none',
+            borderRadius: '50%',
+            padding: '6px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px #0003',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: '8px'
+          }}
+          title="Show eBPF Correlation"
+        >
+          <img
+            src={logo}
+            alt="eBPF"
+            style={{
+              width: 28,
+              height: 28,
+              filter: ebpfHover ? 'none' : 'grayscale(1) brightness(0.7)'
+            }}
+          />
+        </button>
       </div>
     </div>
   );

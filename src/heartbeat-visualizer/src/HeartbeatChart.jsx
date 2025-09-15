@@ -1,34 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ChartControls from './ChartControls';
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceDot } from 'recharts';
 
 // --- Data source URLs and constants ---
-const MANIFEST_URL = '/mocking_data/leases.manifest.json'; // List of dataset files
-const DATASET_PATH = '/mocking_data/';                     // Path to datasets
-const BEEP_SRC = '/beep.mp3';                              // Sound file for heartbeat
+const MANIFEST_URL = '/mocking_data/leases.manifest.json'; // Heartbeat datasets
+const EBPF_MANIFEST_URL = '/mocking_data/ebpf-leases.manifest.json'; // eBPF datasets
+const DATASET_PATH = '/mocking_data/';
+const BEEP_SRC = '/beep.mp3';
 
 const HEARTBEAT_INTERVAL = 10000; // 10 seconds per heartbeat animation step
 
 // --- Color constants ---
-const NAMESPACE_COLOR = 'rgb(11, 238, 121)'; // Green for initial state
-const DEATH_COLOR = '#e00'; // Red for death events
-// Colors for hover/click (do not use green, yellow, red)
+const NAMESPACE_COLOR = 'rgb(11, 238, 121)';
+const DEATH_COLOR = '#e00';
+const EBPF_COLOR = '#ff2050'; // Color for eBPF markers
 const HOVER_COLORS = [
-  'rgb(54, 162, 235)',   // blue
-  'rgb(153, 102, 255)',  // purple
-  'rgb(0, 204, 204)',    // teal
-  'rgb(255, 102, 204)',  // pink
-  'rgb(153, 102, 51)',   // brown
-  'rgb(128, 128, 128)',  // grey
-  'rgb(255, 0, 255)',    // magenta
-  'rgb(0, 102, 204)',    // dark blue
-  'rgb(102, 0, 204)',    // violet
-  'rgb(0, 153, 153)',    // dark teal
-  'rgb(204, 102, 255)',  // light purple
+  'rgb(54, 162, 235)', 'rgb(153, 102, 255)', 'rgb(0, 204, 204)', 'rgb(255, 102, 204)',
+  'rgb(153, 102, 51)', 'rgb(128, 128, 128)', 'rgb(255, 0, 255)', 'rgb(0, 102, 204)',
+  'rgb(102, 0, 204)', 'rgb(0, 153, 153)', 'rgb(204, 102, 255)'
 ];
 
 // --- Cluster name (should be loaded from config.yaml or API) ---
-const CLUSTER_NAME = 'production-us-west-1'; // Replace with dynamic value if needed
+const CLUSTER_NAME = 'production-us-west-1';
 
 const HeartbeatChart = () => {
   // --- State variables ---
@@ -42,7 +35,13 @@ const HeartbeatChart = () => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(null);
 
-  // --- 1. Fetch manifest on mount ---
+  // --- eBPF state ---
+  const [ebpfManifest, setEbpfManifest] = useState([]);
+  const [currentEbpfFileIdx, setCurrentEbpfFileIdx] = useState(0);
+  const [ebpfData, setEbpfData] = useState([]);
+  const [showEbpf, setShowEbpf] = useState(true); // Show eBPF markers by default
+
+  // --- 1. Fetch heartbeat manifest on mount ---
   useEffect(() => {
     fetch(MANIFEST_URL)
       .then(res => res.json())
@@ -58,7 +57,15 @@ const HeartbeatChart = () => {
       .catch(() => setStep('nodata'));
   }, []);
 
-  // --- 2. When in 'sync' step, load data and then go to 'animate' ---
+  // --- 2. Fetch eBPF manifest on mount ---
+  useEffect(() => {
+    fetch(EBPF_MANIFEST_URL)
+      .then(res => res.json())
+      .then(files => setEbpfManifest(files))
+      .catch(() => setEbpfManifest([]));
+  }, []);
+
+  // --- 3. When in 'sync' step, load heartbeat and eBPF data ---
   useEffect(() => {
     if (step !== 'sync' || manifest.length === 0) return;
     setCurrentHeartbeat(0);
@@ -70,9 +77,19 @@ const HeartbeatChart = () => {
         setTimeout(() => setStep('animate'), 1000);
       })
       .catch(() => setStep('nodata'));
-  }, [step, manifest, currentFileIdx]);
 
-  // --- 3. Animate heartbeats robustly ---
+    // Load corresponding eBPF file (by index)
+    if (ebpfManifest.length > 0) {
+      const ebpfFile = ebpfManifest[currentFileIdx] || ebpfManifest[0];
+      fetch(`${DATASET_PATH}${ebpfFile}`)
+        .then(res => res.json())
+        .then(data => setEbpfData(data))
+        .catch(() => setEbpfData([]));
+    }
+    setShowEbpf(true); // Show eBPF markers by default
+  }, [step, manifest, currentFileIdx, ebpfManifest]);
+
+  // --- 4. Animate heartbeats robustly ---
   useEffect(() => {
     if (step !== 'animate' || !leasesData) return;
     const totalHeartbeats = Math.max(...Object.values(leasesData).map(nsArr => nsArr.length));
@@ -86,7 +103,7 @@ const HeartbeatChart = () => {
     }
   }, [step, leasesData, currentHeartbeat, currentFileIdx]);
 
-  // --- 4. Play beep sound on heartbeat if noise is enabled ---
+  // --- 5. Play beep sound on heartbeat if noise is enabled ---
   useEffect(() => {
     if (step === 'animate' && noise && audioRef.current) {
       audioRef.current.currentTime = 0;
@@ -94,7 +111,7 @@ const HeartbeatChart = () => {
     }
   }, [currentHeartbeat, step, noise]);
 
-  // --- 5. In 'pause' step, go to next dataset or finish ---
+  // --- 6. In 'pause' step, go to next dataset or finish ---
   useEffect(() => {
     if (step !== 'pause') return;
     if (currentFileIdx < manifest.length - 1) {
@@ -107,10 +124,7 @@ const HeartbeatChart = () => {
     }
   }, [step, currentFileIdx, manifest.length]);
 
-  // --- 6. Prepare data for Recharts ---
-  // chartData: array of points for recharts
-  // namespaces: array of namespace names
-  // Now uses 'y' property for timestamp (milliseconds since epoch)
+  // --- 7. Prepare data for Recharts ---
   let chartData = [];
   let namespaces = [];
   if (leasesData) {
@@ -118,7 +132,6 @@ const HeartbeatChart = () => {
     const maxPoints = currentHeartbeat + 1;
     for (let i = 0; i < maxPoints; i++) {
       const point = { index: i };
-      // Use the first available 'y' value as timestamp for each heartbeat
       for (const ns of namespaces) {
         if (leasesData[ns][i] && leasesData[ns][i].y) {
           point.timestamp = leasesData[ns][i].y;
@@ -133,6 +146,9 @@ const HeartbeatChart = () => {
       chartData.push(point);
     }
   }
+
+  console.log('ebpfData', ebpfData);
+  console.log('chartData', chartData);
 
   // --- Helper: returns true if any gap between consecutive y values is >10s and <40s (warning) ---
   function hasWarning(data) {
@@ -218,6 +234,31 @@ const HeartbeatChart = () => {
     return events;
   }
 
+  // --- Helper: get eBPF markers for current chart data ---
+  function getEbpfMarkers(chartData, ebpfData) {
+    if (!showEbpf || !ebpfData || ebpfData.length === 0) return [];
+    const markers = [];
+    chartData.forEach(point => {
+      ebpfData.forEach(event => {
+        // Match by timestamp (±5s) and namespace
+        if (
+          point.timestamp &&
+          event.timestamp &&
+          Math.abs(event.timestamp - point.timestamp) < 5000 &&
+          namespaces.includes(event.namespace)
+        ) {
+          markers.push({
+            x: point.timestamp,
+            namespace: event.namespace,
+            label: `${event.comm} (${event.syscall})`,
+            color: EBPF_COLOR
+          });
+        }
+      });
+    });
+    return markers;
+  }
+
   // --- Legend renderer: namespace labels centered below the chart, clickable to show only one line ---
   const renderLegend = () => (
     <div
@@ -273,7 +314,6 @@ const HeartbeatChart = () => {
 
   // --- Custom Tooltip renderer to show cluster name at the top ---
   const CustomTooltip = (props) => {
-    // props.payload, props.label, etc. are provided by Recharts
     if (!props.active || !props.payload || props.payload.length === 0) return null;
     return (
       <div style={{
@@ -285,7 +325,6 @@ const HeartbeatChart = () => {
         padding: '10px 16px',
         minWidth: '180px'
       }}>
-        {/* Cluster name at the top */}
         <div style={{
           color: '#ccc',
           fontWeight: 600,
@@ -295,7 +334,6 @@ const HeartbeatChart = () => {
         }}>
           {CLUSTER_NAME}
         </div>
-        {/* Existing tooltip content */}
         <div>
           <strong>{props.labelFormatter ? props.labelFormatter(props.label) : props.label}</strong>
         </div>
@@ -345,19 +383,21 @@ const HeartbeatChart = () => {
       {/* Main chart UI */}
       {(step === 'animate' || step === 'pause') && (
         <>
-          {/* Controls bar (sound, language, restart, summary panel) */}
+          {/* Controls bar (sound, language, restart, summary panel, ebpf toggle) */}
           <ChartControls
             noise={noise}
             onNoiseToggle={() => setNoise(n => !n)}
             language={'en'}
             onLanguageToggle={() => {/* ... */}}
             onRestart={() => {
-              setCurrentHeartbeat(0);
+              //setCurrentHeartbeat(0);
               setSelectedIdx(null);
             }}
             timestamp={chartData.length ? chartData[chartData.length - 1].timestamp : null}
             leasesData={leasesData}
-            events={getEvents(leasesData)} // Pass events to ChartControls
+            events={getEvents(leasesData)}
+            showEbpf={showEbpf}
+            onEbpfCorrelate={() => setShowEbpf(v => !v)}
           />
           {/* Heartbeat chart */}
           <LineChart width={1000} height={500} data={chartData}>
@@ -368,8 +408,11 @@ const HeartbeatChart = () => {
                 const date = new Date(tick);
                 return date.toLocaleTimeString('en-US', { hour12: false });
               }}
+              tick={{ fontSize: 11, fill: '#ccc' }}
             />
-            <YAxis />
+            <YAxis
+              tick={{ fontSize: 11, fill: '#ccc' }}
+            />
             <Tooltip
               contentStyle={{
                 background: '#222',
@@ -385,8 +428,9 @@ const HeartbeatChart = () => {
                     : NAMESPACE_COLOR
               }}
               labelFormatter={label => `heartbeat: ${label}`}
-              content={CustomTooltip} // <-- Use custom tooltip to show cluster name
+              content={CustomTooltip}
             />
+            {/* Render heartbeat lines */}
             {selectedIdx === null
               ? namespaces.map(ns => {
                   const death = hasDeath(leasesData[ns]);
@@ -418,6 +462,27 @@ const HeartbeatChart = () => {
                 />
               )
             }
+            {/* Render eBPF markers with custom shapes if enabled */}
+            {showEbpf && getEbpfMarkers(chartData, ebpfData).map((marker, idx) => {
+              const event = ebpfData.find(
+                e =>
+                  Math.abs(e.timestamp - marker.x) < 5000 &&
+                  e.namespace === marker.namespace
+              );
+              return (
+                <ReferenceDot
+                  key={idx}
+                  x={marker.x}
+                  //y={namespaces.indexOf(marker.namespace)}
+                  y={chartData.find(d => d.timestamp === marker.x)?.[marker.namespace]}
+                  r={7}
+                  fill={marker.color}
+                  stroke="#fff"
+                  label={marker.label}
+                  shape={<EbpfMarkerShape payload={event} />}
+                />
+              );
+            })}
           </LineChart>
           {renderLegend()}
         </>
@@ -431,5 +496,27 @@ const HeartbeatChart = () => {
     </div>
   );
 };
+
+function EbpfMarkerShape({ cx, cy, payload }) {
+  if (payload && payload.syscall === 'exit') {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={7} fill="#fff" stroke="#e00" strokeWidth={2} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize="14" fill="#e00" fontWeight="bold">✖</text>
+      </g>
+    );
+  }
+  if (payload && payload.syscall === 'fork') {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={7} fill="#fff" stroke="#0e0" strokeWidth={2} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize="14" fill="#0e0" fontWeight="bold">★</text>
+      </g>
+    );
+  }
+  return (
+    <circle cx={cx} cy={cy} r={7} fill={EBPF_COLOR} stroke="#fff" strokeWidth={2} />
+  );
+}
 
 export default HeartbeatChart;

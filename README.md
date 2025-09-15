@@ -47,6 +47,7 @@ earthworm/
 
 ## Getting Started
 
+Notice:  At this moment we are using only mock data (leases.json) from both sources Otel and eBPF.
 
 ### Prerequisites
 - Go (version 1.16 or later)
