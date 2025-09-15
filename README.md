@@ -114,9 +114,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Author
 Alejandro Mercado Peña mercadoalex[at]gmail.com
-
-heart
 # Update
 ![Earthworm Heartbeat Visualization](heartbeat02.png)
 # Anomalies detected
 ![Earthworm Heartbeat Visualization](heartbeat03.png)
+# Anomalies detail
+![Earthworm Heartbeat Visualization](heartbeat04.png)
+# eEBPF power unleashed
+![Earthworm Heartbeat Visualization](heartbeat05.png)

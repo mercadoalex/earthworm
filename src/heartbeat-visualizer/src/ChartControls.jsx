@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import logo from './logo.svg'; // Make sure logo.svg is in the same directory
 
-// --- Button styles ---
+// --- Button styles for generic buttons ---
 const buttonStyle = {
   fontSize: '0.65rem',
   padding: '0.15rem 0.4rem',
@@ -9,7 +9,7 @@ const buttonStyle = {
   color: '#ccc',
   borderWidth: '1px',
   borderStyle: 'solid',
-  borderColor: '#222', // Use longhand
+  borderColor: '#222',
   borderRadius: '2px',
   cursor: 'pointer',
   transition: 'background 0.2s, border-color 0.2s'
@@ -17,10 +17,10 @@ const buttonStyle = {
 
 const buttonHoverStyle = {
   background: '#333',
-  borderColor: '#22ff99' // Only borderColor, no border shorthand
+  borderColor: '#22ff99'
 };
 
-// --- Toggle switch style ---
+// --- Toggle switch style for sound ---
 const toggleContainerStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -116,7 +116,7 @@ const ToggleNoise = ({ active, onToggle }) => (
   </button>
 );
 
-// --- Button component ---
+// --- Button component for generic buttons ---
 const Button = ({ onClick, style, hoverStyle, label }) => {
   const [hover, setHover] = React.useState(false);
   return (
@@ -131,7 +131,21 @@ const Button = ({ onClick, style, hoverStyle, label }) => {
   );
 };
 
-// --- Main ChartControls component ---
+/**
+ * ChartControls component
+ * Props:
+ * - noise: boolean, sound on/off
+ * - onNoiseToggle: function, toggles sound
+ * - language: string, current language
+ * - onLanguageToggle: function, toggles language
+ * - onRestart: function, restarts chart
+ * - timestamp: number, current timestamp
+ * - leasesData: object, heartbeat lease data
+ * - showEbpf: boolean, whether to show ebpf markers
+ * - onEbpfCorrelate: function, toggles ebpf markers
+ * - clearEbpfData: function, sets ebpfData to []
+ * - restoreEbpfData: function, reloads ebpfData from file
+ */
 const ChartControls = ({
   noise,
   onNoiseToggle,
@@ -140,7 +154,10 @@ const ChartControls = ({
   onRestart,
   timestamp,
   leasesData,
-  onEbpfCorrelate // <-- Add this prop for the button handler
+  showEbpf,
+  onEbpfCorrelate,
+  clearEbpfData,
+  restoreEbpfData
 }) => {
   // Get all namespace keys from leasesData
   const namespaces = Object.keys(leasesData || {});
@@ -177,6 +194,20 @@ const ChartControls = ({
   // Get anomalies data
   const anomalies = getAnomalies(leasesData);
 
+  // --- eBPF Button click handler ---
+  // When clicked, toggles eBPF data and icon state
+  const handleEbpfClick = () => {
+    if (showEbpf) {
+      // Hide eBPF: clear only ebpf data
+      if (clearEbpfData) clearEbpfData();
+    } else {
+      // Show eBPF: restore ebpf data
+      if (restoreEbpfData) restoreEbpfData();
+    }
+    // Toggle the marker visibility state
+    if (onEbpfCorrelate) onEbpfCorrelate();
+  };
+
   return (
     <div
       style={{
@@ -188,7 +219,7 @@ const ChartControls = ({
         maxWidth: '1000px',
         marginLeft: 'auto',
         marginRight: 'auto',
-        position: 'relative' // Needed for absolute tooltip positioning
+        position: 'relative'
       }}
     >
       {/* Anomaly Summary */}
@@ -313,7 +344,7 @@ const ChartControls = ({
         />
         {/* eBPF Correlation Button - placed at the right of Restart */}
         <button
-          onClick={onEbpfCorrelate}
+          onClick={handleEbpfClick}
           onMouseEnter={() => setEbpfHover(true)}
           onMouseLeave={() => setEbpfHover(false)}
           style={{
@@ -328,15 +359,17 @@ const ChartControls = ({
             justifyContent: 'center',
             marginLeft: '8px'
           }}
-          title="Show eBPF Correlation"
+          title={showEbpf ? "Hide eBPF Correlation" : "Show eBPF Correlation"}
         >
+          {/* The logo image: normal color by default, grayscale on hover */}
           <img
             src={logo}
             alt="eBPF"
             style={{
               width: 28,
               height: 28,
-              filter: ebpfHover ? 'none' : 'grayscale(1) brightness(0.7)'
+              filter: ebpfHover ? 'grayscale(1) brightness(0.7)' : 'none',
+              transition: 'filter 0.2s'
             }}
           />
         </button>
