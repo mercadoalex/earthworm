@@ -1,0 +1,19 @@
+[
+  { "timestamp": 1757366260000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "bind" },
+  { "timestamp": 1757366270000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "execve" },
+  { "timestamp": 1757366280000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "open" },
+  { "timestamp": 1757366290000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "write" },
+  { "timestamp": 1757366300000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "close" },
+
+  { "timestamp": 1757366260000, "namespace": "harness-gitops", "pod": "harness-gitops-ghi789", "pid": 3001, "comm": "controller", "syscall": "bind" },
+  { "timestamp": 1757366270000, "namespace": "harness-gitops", "pod": "harness-gitops-ghi789", "pid": 3001, "comm": "controller", "syscall": "fork" },
+  { "timestamp": 1757366280000, "namespace": "harness-gitops", "pod": "harness-gitops-ghi789", "pid": 3002, "comm": "controller", "syscall": "execve" },
+  { "timestamp": 1757366290000, "namespace": "harness-gitops", "pod": "harness-gitops-ghi789", "pid": 3002, "comm": "controller", "syscall": "open" },
+  { "timestamp": 1757366300000, "namespace": "harness-gitops", "pod": "harness-gitops-ghi789", "pid": 3002, "comm": "controller", "syscall": "bind" },
+
+  { "timestamp": 1757366260000, "namespace": "kube-system", "pod": "kube-scheduler-def456", "pid": 2001, "comm": "scheduler", "syscall": "bind" },
+  { "timestamp": 1757366270000, "namespace": "kube-system", "pod": "kube-scheduler-def456", "pid": 2001, "comm": "scheduler", "syscall": "execve" },
+  { "timestamp": 1757366280000, "namespace": "kube-system", "pod": "kube-scheduler-def456", "pid": 2001, "comm": "scheduler", "syscall": "open" },
+  { "timestamp": 1757366290000, "namespace": "kube-system", "pod": "kube-scheduler-def456", "pid": 2001, "comm": "scheduler", "syscall": "write" },
+  { "timestamp": 1757366300000, "namespace": "kube-system", "pod": "kube-scheduler-def456", "pid": 2001, "comm": "scheduler", "syscall": "close" }
+]

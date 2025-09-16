@@ -25,20 +25,20 @@ const CLUSTER_NAME = 'production-us-west-1';
 
 const HeartbeatChart = () => {
   // --- State variables ---
-  const [manifest, setManifest] = useState([]);
-  const [currentFileIdx, setCurrentFileIdx] = useState(0);
-  const [leasesData, setLeasesData] = useState(null);
-  const [currentHeartbeat, setCurrentHeartbeat] = useState(0);
-  const [step, setStep] = useState('sync');
-  const [noise, setNoise] = useState(false);
-  const audioRef = useRef(null);
-  const [hoveredIdx, setHoveredIdx] = useState(null);
-  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [manifest, setManifest] = useState([]); // Heartbeat manifest
+  const [currentFileIdx, setCurrentFileIdx] = useState(0); // Index of current heartbeat file
+  const [leasesData, setLeasesData] = useState(null); // Heartbeat data for current file
+  const [currentHeartbeat, setCurrentHeartbeat] = useState(0); // Animation step
+  const [step, setStep] = useState('sync'); // Chart state: sync, animate, pause, nodata
+  const [noise, setNoise] = useState(false); // Sound on/off
+  const audioRef = useRef(null); // Ref for beep sound
+  const [hoveredIdx, setHoveredIdx] = useState(null); // Hovered namespace index
+  const [selectedIdx, setSelectedIdx] = useState(null); // Selected namespace index
 
   // --- eBPF state ---
-  const [ebpfManifest, setEbpfManifest] = useState([]);
-  const [currentEbpfFileIdx, setCurrentEbpfFileIdx] = useState(0);
-  const [ebpfData, setEbpfData] = useState([]);
+  const [ebpfManifest, setEbpfManifest] = useState([]); // eBPF manifest
+  //const [currentEbpfFileIdx, setCurrentEbpfFileIdx] = useState(0); // Index of current eBPF file (not used, kept for future)
+  const [ebpfData, setEbpfData] = useState([]); // eBPF data for current file
   const [showEbpf, setShowEbpf] = useState(true); // Show eBPF markers by default
 
   // --- 1. Fetch heartbeat manifest on mount ---
@@ -46,6 +46,7 @@ const HeartbeatChart = () => {
     fetch(MANIFEST_URL)
       .then(res => res.json())
       .then(files => {
+        // Sort so leases.json is first, then others alphabetically
         const sorted = files.sort((a, b) => {
           if (a === 'leases.json') return -1;
           if (b === 'leases.json') return 1;
@@ -70,21 +71,38 @@ const HeartbeatChart = () => {
     if (step !== 'sync' || manifest.length === 0) return;
     setCurrentHeartbeat(0);
     const file = manifest[currentFileIdx];
+    // Load heartbeat data (primary, controls chart)
     fetch(`${DATASET_PATH}${file}`)
       .then(res => res.json())
       .then(data => {
+        console.log('Loaded', file, data);
+        if (!data || Object.keys(data).length === 0) {
+          console.warn('Empty or invalid data for', file);
+        }
         setLeasesData(data);
         setTimeout(() => setStep('animate'), 1000);
       })
-      .catch(() => setStep('nodata'));
+      .catch(err => {
+        console.error('Error loading', file, err);
+        setLeasesData([]);
+        setStep('nodata');
+      });
 
-    // Load corresponding eBPF file (by index)
+    // Load corresponding eBPF file (complementary, does NOT control chart)
     if (ebpfManifest.length > 0) {
       const ebpfFile = ebpfManifest[currentFileIdx] || ebpfManifest[0];
       fetch(`${DATASET_PATH}${ebpfFile}`)
         .then(res => res.json())
-        .then(data => setEbpfData(data))
-        .catch(() => setEbpfData([]));
+        .then(data => {
+          console.log('Loaded', ebpfFile, data);
+          setEbpfData(Array.isArray(data) ? data : []);
+        })
+        .catch(err => {
+          console.error('Error loading', ebpfFile, err);
+          setEbpfData([]); // If missing, just clear markers, do NOT affect chart
+        });
+    } else {
+      setEbpfData([]); // If no manifest, just clear markers
     }
     setShowEbpf(true); // Show eBPF markers by default
   }, [step, manifest, currentFileIdx, ebpfManifest]);
@@ -92,6 +110,7 @@ const HeartbeatChart = () => {
   // --- 4. Animate heartbeats robustly ---
   useEffect(() => {
     if (step !== 'animate' || !leasesData) return;
+    // Find the longest namespace array to determine total heartbeats
     const totalHeartbeats = Math.max(...Object.values(leasesData).map(nsArr => nsArr.length));
     if (currentHeartbeat < totalHeartbeats - 1) {
       const timer = setTimeout(() => {
@@ -147,7 +166,9 @@ const HeartbeatChart = () => {
     }
   }
 
+  // Debug logs for loaded data
   console.log('ebpfData', ebpfData);
+  console.log('ebpf markers', getEbpfMarkers(chartData, ebpfData));
   console.log('chartData', chartData);
 
   // --- Helper: returns true if any gap between consecutive y values is >10s and <40s (warning) ---
@@ -314,6 +335,7 @@ const HeartbeatChart = () => {
 
   // --- Custom Tooltip renderer to show cluster name at the top ---
   const CustomTooltip = (props) => {
+    //if (!props.active || !props.payload || props.payload.length === 0) return null;
     if (!props.active || !props.payload || props.payload.length === 0) return null;
     return (
       <div style={{
@@ -390,7 +412,6 @@ const HeartbeatChart = () => {
             language={'en'}
             onLanguageToggle={() => {/* ... */}}
             onRestart={() => {
-              //setCurrentHeartbeat(0);
               setSelectedIdx(null);
             }}
             timestamp={chartData.length ? chartData[chartData.length - 1].timestamp : null}
@@ -469,17 +490,52 @@ const HeartbeatChart = () => {
                   Math.abs(e.timestamp - marker.x) < 5000 &&
                   e.namespace === marker.namespace
               );
+              const yValue = chartData.find(d => d.timestamp === marker.x)?.timestamp;
+              if (typeof yValue !== 'number' || isNaN(yValue)) return null;
               return (
                 <ReferenceDot
                   key={idx}
                   x={marker.x}
-                  //y={namespaces.indexOf(marker.namespace)}
-                  y={chartData.find(d => d.timestamp === marker.x)?.[marker.namespace]}
+                  y={yValue}
                   r={7}
                   fill={marker.color}
                   stroke="#fff"
-                  label={marker.label}
-                  shape={<EbpfMarkerShape payload={event} />}
+                  label={({ cx, cy }) =>
+                    typeof cx === 'number' && typeof cy === 'number' ? (
+                      <g>
+                        <text
+                          x={cx}
+                          y={cy + 10}
+                          fontSize="8"
+                          fill="#ff2050"
+                          textAnchor="middle"
+                          fontWeight="bold"
+                        >
+                          {event
+                            ? `${event.comm} (${event.syscall})`
+                            : marker.label}
+                        </text>
+                        {event && (
+                          <text
+                            x={cx}
+                            y={cy + 17}
+                            fontSize="7"
+                            fill="#aaa"
+                            textAnchor="middle"
+                          >
+                            PID: {event.pid} | NS: {event.namespace}
+                          </text>
+                        )}
+                      </g>
+                    ) : null
+                  }
+                  shape={({ cx, cy }) =>
+                    typeof cx === 'number' && typeof cy === 'number' ? (
+                      <g>
+                        <EbpfMarkerShape payload={event} cx={cx} cy={cy} />
+                      </g>
+                    ) : null
+                  }
                 />
               );
             })}
@@ -497,6 +553,12 @@ const HeartbeatChart = () => {
   );
 };
 
+/**
+ * Custom shape for eBPF markers.
+ * - "exit": red X
+ * - "fork": green star
+ * - others: default eBPF color dot
+ */
 function EbpfMarkerShape({ cx, cy, payload }) {
   if (payload && payload.syscall === 'exit') {
     return (
