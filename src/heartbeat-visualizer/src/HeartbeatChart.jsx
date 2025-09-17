@@ -42,6 +42,9 @@ const HeartbeatChart = () => {
   // --- Selected eBPF event for info panel ---
   const [selectedEbpfEvent, setSelectedEbpfEvent] = useState(null);
 
+  // --- Hovered eBPF marker index ---
+  const [hoveredEbpfIdx, setHoveredEbpfIdx] = useState(null);
+
   // --- Clear selected eBPF event when clicking outside markers/info panel ---
   useEffect(() => {
     function handleClick(e) {
@@ -458,41 +461,24 @@ const HeartbeatChart = () => {
                 r={7}
                 fill={EBPF_COLOR}
                 stroke="#fff"
-                className="recharts-reference-dot"
-                onClick={e => {
-                  e.stopPropagation(); // Prevent global click handler
-                  setSelectedEbpfEvent(marker.event);
-                }}
-                style={{ cursor: 'pointer' }}
-                label={({ cx, cy }) =>
-                  typeof cx === 'number' && typeof cy === 'number' ? (
-                    <g transform={`translate(${marker.offset},0)`}>
-                      <text
-                        x={cx}
-                        y={cy + 10}
-                        fontSize="8"
-                        fill="#ff2050"
-                        textAnchor="middle"
-                        fontWeight="bold"
-                      >
-                        {marker.event.comm} ({marker.event.syscall})
-                      </text>
-                      <text
-                        x={cx}
-                        y={cy + 17}
-                        fontSize="7"
-                        fill="#aaa"
-                        textAnchor="middle"
-                      >
-                        PID: {marker.event.pid} | NS: {marker.event.namespace}
-                      </text>
-                    </g>
-                  ) : null
-                }
                 shape={({ cx, cy }) =>
                   typeof cx === 'number' && typeof cy === 'number' ? (
-                    <g transform={`translate(${marker.offset},0)`}>
-                      <EbpfMarkerShape payload={marker.event} cx={cx} cy={cy} />
+                    <g
+                      className="recharts-reference-dot"
+                      style={{ cursor: 'pointer' }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setSelectedEbpfEvent(marker.event);
+                      }}
+                      onMouseEnter={() => setHoveredEbpfIdx(idx)}
+                      onMouseLeave={() => setHoveredEbpfIdx(null)}
+                    >
+                      <EbpfMarkerShape
+                        payload={marker.event}
+                        cx={cx + marker.offset}
+                        cy={cy}
+                        hovered={hoveredEbpfIdx === idx}
+                      />
                     </g>
                   ) : null
                 }
@@ -516,13 +502,27 @@ const HeartbeatChart = () => {
               }}
             >
               <strong>eBPF Event Info</strong><br />
-              Namespace: {(selectedEbpfEvent || lastEbpfMarker.event).namespace}
-              Timestamp: {(selectedEbpfEvent || lastEbpfMarker.event).timestamp} 
-              Comm: {(selectedEbpfEvent || lastEbpfMarker.event).comm}
-              Syscall: {(selectedEbpfEvent || lastEbpfMarker.event).syscall}
-              PID: {(selectedEbpfEvent || lastEbpfMarker.event).pid}
+              Namespace: {(selectedEbpfEvent || lastEbpfMarker.event).namespace}<br />
+              Timestamp: {
+                (() => {
+                  const ts = (selectedEbpfEvent || lastEbpfMarker.event).timestamp;
+                  const date = new Date(ts);
+                  return date.toLocaleString('en-US', {
+                    year: '2-digit',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                  });
+                })()
+              }<br />
+              Comm: {(selectedEbpfEvent || lastEbpfMarker.event).comm} ¬
+              Syscall: {(selectedEbpfEvent || lastEbpfMarker.event).syscall} ¬
+              PID: {(selectedEbpfEvent || lastEbpfMarker.event).pid} ¬
               {selectedEbpfEvent && (
-                <div style={{ marginTop: '8px', fontSize: '0.9em', color: '#aaa' }}>
+                <div style={{ marginTop: '8px', fontSize: '0.8em', color: '#aaa' }}>
                   (Click anywhere outside a marker to clear selection)
                 </div>
               )}
@@ -546,11 +546,13 @@ const HeartbeatChart = () => {
  * - "fork": green star
  * - others: default eBPF color dot
  */
-function EbpfMarkerShape({ cx, cy, payload }) {
+function EbpfMarkerShape({ cx, cy, payload, hovered }) {
+  const markerFill = hovered ? '#fff200' : (payload && payload.syscall === 'exit' ? '#fff' : payload && payload.syscall === 'fork' ? '#fff' : EBPF_COLOR);
+  const markerStroke = hovered ? '#ff2050' : (payload && payload.syscall === 'exit' ? '#e00' : payload && payload.syscall === 'fork' ? '#0e0' : '#fff');
   if (payload && payload.syscall === 'exit') {
     return (
       <g>
-        <circle cx={cx} cy={cy} r={7} fill="#fff" stroke="#e00" strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={7} fill={markerFill} stroke={markerStroke} strokeWidth={2} />
         <text x={cx} y={cy + 4} textAnchor="middle" fontSize="14" fill="#e00" fontWeight="bold">✖</text>
       </g>
     );
@@ -558,13 +560,13 @@ function EbpfMarkerShape({ cx, cy, payload }) {
   if (payload && payload.syscall === 'fork') {
     return (
       <g>
-        <circle cx={cx} cy={cy} r={7} fill="#fff" stroke="#0e0" strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={7} fill={markerFill} stroke={markerStroke} strokeWidth={2} />
         <text x={cx} y={cy + 4} textAnchor="middle" fontSize="14" fill="#0e0" fontWeight="bold">★</text>
       </g>
     );
   }
   return (
-    <circle cx={cx} cy={cy} r={7} fill={EBPF_COLOR} stroke="#fff" strokeWidth={2} />
+    <circle cx={cx} cy={cy} r={7} fill={markerFill} stroke={markerStroke} strokeWidth={2} />
   );
 }
 
