@@ -1,6 +1,6 @@
 [
 
-  { "timestamp": 1757365200000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "sched_switch" },
+  { "timestamp": 1757365200000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "exit" },
   { "timestamp": 1757365250000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "sched_switch" },
   { "timestamp": 1757365300000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "sched_switch" },
   { "timestamp": 1757365350000, "namespace": "aws-pca-issuer", "pod": "aws-pca-issuer-abc123", "pid": 1001, "comm": "kubelet", "syscall": "sched_switch" },

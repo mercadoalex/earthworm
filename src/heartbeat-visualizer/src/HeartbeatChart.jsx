@@ -20,33 +20,48 @@ const HOVER_COLORS = [
   'rgb(102, 0, 204)', 'rgb(0, 153, 153)', 'rgb(204, 102, 255)'
 ];
 
-// --- Cluster name (should be loaded from config.yaml or API) ---
 const CLUSTER_NAME = 'production-us-west-1';
 
 const HeartbeatChart = () => {
   // --- State variables ---
-  const [manifest, setManifest] = useState([]); // Heartbeat manifest
-  const [currentFileIdx, setCurrentFileIdx] = useState(0); // Index of current heartbeat file
-  const [leasesData, setLeasesData] = useState(null); // Heartbeat data for current file
-  const [currentHeartbeat, setCurrentHeartbeat] = useState(0); // Animation step
-  const [step, setStep] = useState('sync'); // Chart state: sync, animate, pause, nodata
-  const [noise, setNoise] = useState(false); // Sound on/off
-  const audioRef = useRef(null); // Ref for beep sound
-  const [hoveredIdx, setHoveredIdx] = useState(null); // Hovered namespace index
-  const [selectedIdx, setSelectedIdx] = useState(null); // Selected namespace index
+  const [manifest, setManifest] = useState([]);
+  const [currentFileIdx, setCurrentFileIdx] = useState(0);
+  const [leasesData, setLeasesData] = useState(null);
+  const [currentHeartbeat, setCurrentHeartbeat] = useState(0);
+  const [step, setStep] = useState('sync');
+  const [noise, setNoise] = useState(false);
+  const audioRef = useRef(null);
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [selectedIdx, setSelectedIdx] = useState(null);
 
   // --- eBPF state ---
-  const [ebpfManifest, setEbpfManifest] = useState([]); // eBPF manifest
-  //const [currentEbpfFileIdx, setCurrentEbpfFileIdx] = useState(0); // Index of current eBPF file (not used, kept for future)
-  const [ebpfData, setEbpfData] = useState([]); // eBPF data for current file
-  const [showEbpf, setShowEbpf] = useState(true); // Show eBPF markers by default
+  const [ebpfManifest, setEbpfManifest] = useState([]);
+  const [ebpfData, setEbpfData] = useState([]);
+  const [showEbpf, setShowEbpf] = useState(true);
+
+  // --- Selected eBPF event for info panel ---
+  const [selectedEbpfEvent, setSelectedEbpfEvent] = useState(null);
+
+  // --- Clear selected eBPF event when clicking outside markers/info panel ---
+  useEffect(() => {
+    function handleClick(e) {
+      // Only clear if clicking outside the info panel and markers
+      if (
+        !e.target.closest('.ebpf-info-panel') &&
+        !e.target.closest('.recharts-reference-dot')
+      ) {
+        setSelectedEbpfEvent(null);
+      }
+    }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
 
   // --- 1. Fetch heartbeat manifest on mount ---
   useEffect(() => {
     fetch(MANIFEST_URL)
       .then(res => res.json())
       .then(files => {
-        // Sort so leases.json is first, then others alphabetically
         const sorted = files.sort((a, b) => {
           if (a === 'leases.json') return -1;
           if (b === 'leases.json') return 1;
@@ -71,46 +86,34 @@ const HeartbeatChart = () => {
     if (step !== 'sync' || manifest.length === 0) return;
     setCurrentHeartbeat(0);
     const file = manifest[currentFileIdx];
-    // Load heartbeat data (primary, controls chart)
     fetch(`${DATASET_PATH}${file}`)
       .then(res => res.json())
       .then(data => {
-        console.log('Loaded', file, data);
-        if (!data || Object.keys(data).length === 0) {
-          console.warn('Empty or invalid data for', file);
-        }
         setLeasesData(data);
         setTimeout(() => setStep('animate'), 1000);
       })
-      .catch(err => {
-        console.error('Error loading', file, err);
+      .catch(() => {
         setLeasesData([]);
         setStep('nodata');
       });
 
-    // Load corresponding eBPF file (complementary, does NOT control chart)
     if (ebpfManifest.length > 0) {
       const ebpfFile = ebpfManifest[currentFileIdx] || ebpfManifest[0];
       fetch(`${DATASET_PATH}${ebpfFile}`)
         .then(res => res.json())
         .then(data => {
-          console.log('Loaded', ebpfFile, data);
           setEbpfData(Array.isArray(data) ? data : []);
         })
-        .catch(err => {
-          console.error('Error loading', ebpfFile, err);
-          setEbpfData([]); // If missing, just clear markers, do NOT affect chart
-        });
+        .catch(() => setEbpfData([]));
     } else {
-      setEbpfData([]); // If no manifest, just clear markers
+      setEbpfData([]);
     }
-    setShowEbpf(true); // Show eBPF markers by default
+    setShowEbpf(true);
   }, [step, manifest, currentFileIdx, ebpfManifest]);
 
   // --- 4. Animate heartbeats robustly ---
   useEffect(() => {
     if (step !== 'animate' || !leasesData) return;
-    // Find the longest namespace array to determine total heartbeats
     const totalHeartbeats = Math.max(...Object.values(leasesData).map(nsArr => nsArr.length));
     if (currentHeartbeat < totalHeartbeats - 1) {
       const timer = setTimeout(() => {
@@ -166,10 +169,9 @@ const HeartbeatChart = () => {
     }
   }
 
-  // Debug logs for loaded data
-  console.log('ebpfData', ebpfData);
-  console.log('ebpf markers', getEbpfMarkers(chartData, ebpfData));
-  console.log('chartData', chartData);
+  // --- Debug logs for troubleshooting ---
+  console.log('chartData:', chartData);
+  console.log('namespaces:', namespaces);
 
   // --- Helper: returns true if any gap between consecutive y values is >10s and <40s (warning) ---
   function hasWarning(data) {
@@ -191,90 +193,48 @@ const HeartbeatChart = () => {
     return false;
   }
 
-  // --- Helper to check if any namespace is in death state ---
-  function hasAnyDeath(leasesData) {
-    return Object.values(leasesData).some(data => {
-      if (!data || data.length < 2) return false;
-      for (let i = 1; i < data.length; i++) {
-        if (data[i].y - data[i - 1].y > 40000) return true;
-      }
-      return false;
-    });
-  }
-
-  // --- Continuous beep effect for death events ---
-  useEffect(() => {
-    let beepInterval;
-    if (
-      noise &&
-      leasesData &&
-      typeof leasesData === 'object' &&
-      hasAnyDeath(leasesData) &&
-      audioRef.current
-    ) {
-      beepInterval = setInterval(() => {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play();
-      }, 400);
-    }
-    return () => {
-      if (beepInterval) clearInterval(beepInterval);
-    };
-  }, [noise, leasesData]);
-
-  // --- Helper: get anomalies and deaths for summary panel ---
-  function getEvents(leasesData) {
-    if (!leasesData) return [];
-    const events = [];
-    Object.entries(leasesData).forEach(([ns, arr]) => {
-      if (!arr || arr.length < 2) return;
-      for (let i = 1; i < arr.length; i++) {
-        const gap = arr[i].y - arr[i - 1].y;
-        if (gap > 10000 && gap < 40000) {
-          events.push({
-            type: 'warning',
-            namespace: ns,
-            index: i,
-            gap,
-            from: arr[i - 1].y,
-            to: arr[i].y
-          });
-        }
-        if (gap > 40000) {
-          events.push({
-            type: 'death',
-            namespace: ns,
-            index: i,
-            gap,
-            from: arr[i - 1].y,
-            to: arr[i].y
-          });
-        }
-      }
-    });
-    return events;
-  }
-
   // --- Helper: get eBPF markers for current chart data ---
+  // Returns array of marker objects with offset for overlapping events
   function getEbpfMarkers(chartData, ebpfData) {
+    console.log('ebpfData:', ebpfData);
+    console.log('chartData:', chartData);
+    console.log('namespaces:', namespaces);
+    console.log('showEbpf:', showEbpf);
+
+    // --- DEBUG: Print matches for each chart point and namespace ---
+    chartData.forEach(point => {
+      namespaces.forEach(ns => {
+        const matchingEvents = ebpfData.filter(event =>
+          event.namespace === ns &&
+          Math.abs(event.timestamp - point.timestamp) < 60000 // <-- 1 minute window for debugging
+        );
+        if (matchingEvents.length > 0) {
+          console.log(
+            `MATCH: ns=${ns}, point.timestamp=${point.timestamp}, events=`,
+            matchingEvents
+          );
+        }
+      });
+    });
+
     if (!showEbpf || !ebpfData || ebpfData.length === 0) return [];
     const markers = [];
     chartData.forEach(point => {
-      ebpfData.forEach(event => {
-        // Match by timestamp (±5s) and namespace
-        if (
-          point.timestamp &&
-          event.timestamp &&
-          Math.abs(event.timestamp - point.timestamp) < 5000 &&
-          namespaces.includes(event.namespace)
-        ) {
+      namespaces.forEach(ns => {
+        // Find all eBPF events for this namespace and timestamp (±1min for debugging)
+        const matchingEvents = ebpfData.filter(event =>
+          event.namespace === ns &&
+          Math.abs(event.timestamp - point.timestamp) < 60000 // <-- 1 minute window for debugging
+        );
+        matchingEvents.forEach((event, i) => {
           markers.push({
             x: point.timestamp,
-            namespace: event.namespace,
-            label: `${event.comm} (${event.syscall})`,
-            color: EBPF_COLOR
+            y: point[ns],
+            namespace: ns,
+            event,
+            offset: (i - Math.floor(matchingEvents.length / 2)) * 12 // Spread overlapping markers
           });
-        }
+        });
       });
     });
     return markers;
@@ -335,8 +295,7 @@ const HeartbeatChart = () => {
 
   // --- Custom Tooltip renderer to show cluster name at the top ---
   const CustomTooltip = (props) => {
-    //if (!props.active || !props.payload || props.payload.length === 0) return null;
-    if (!props.active || !props.payload || props.payload.length === 0) return null;
+    if (!props.active || !props.payload || !props.payload.length === 0) return null;
     return (
       <div style={{
         background: '#222',
@@ -367,6 +326,12 @@ const HeartbeatChart = () => {
       </div>
     );
   };
+
+  // --- Get all eBPF markers for current chart ---
+  const ebpfMarkers = getEbpfMarkers(chartData, ebpfData);
+
+  // --- Get the last marker for auto info ---
+  const lastEbpfMarker = ebpfMarkers.length > 0 ? ebpfMarkers[ebpfMarkers.length - 1] : null;
 
   // --- Render logic ---
   return (
@@ -413,10 +378,11 @@ const HeartbeatChart = () => {
             onLanguageToggle={() => {/* ... */}}
             onRestart={() => {
               setSelectedIdx(null);
+              setSelectedEbpfEvent(null);
             }}
             timestamp={chartData.length ? chartData[chartData.length - 1].timestamp : null}
             leasesData={leasesData}
-            events={getEvents(leasesData)}
+            events={[]} // You can pass getEvents(leasesData) if you want
             showEbpf={showEbpf}
             onEbpfCorrelate={() => setShowEbpf(v => !v)}
           />
@@ -453,7 +419,7 @@ const HeartbeatChart = () => {
             />
             {/* Render heartbeat lines */}
             {selectedIdx === null
-              ? namespaces.map(ns => {
+              ? namespaces.map((ns, idx) => {
                   const death = hasDeath(leasesData[ns]);
                   return (
                     <Line
@@ -484,68 +450,89 @@ const HeartbeatChart = () => {
               )
             }
             {/* Render eBPF markers with custom shapes if enabled */}
-            {showEbpf && getEbpfMarkers(chartData, ebpfData).map((marker, idx) => {
-              const event = ebpfData.find(
-                e =>
-                  Math.abs(e.timestamp - marker.x) < 5000 &&
-                  e.namespace === marker.namespace
-              );
-              const yValue = chartData.find(d => d.timestamp === marker.x)?.timestamp;
-              if (typeof yValue !== 'number' || isNaN(yValue)) return null;
-              return (
-                <ReferenceDot
-                  key={idx}
-                  x={marker.x}
-                  y={yValue}
-                  r={7}
-                  fill={marker.color}
-                  stroke="#fff"
-                  label={({ cx, cy }) =>
-                    typeof cx === 'number' && typeof cy === 'number' ? (
-                      <g>
-                        <text
-                          x={cx}
-                          y={cy + 10}
-                          fontSize="8"
-                          fill="#ff2050"
-                          textAnchor="middle"
-                          fontWeight="bold"
-                        >
-                          {event
-                            ? `${event.comm} (${event.syscall})`
-                            : marker.label}
-                        </text>
-                        {event && (
-                          <text
-                            x={cx}
-                            y={cy + 17}
-                            fontSize="7"
-                            fill="#aaa"
-                            textAnchor="middle"
-                          >
-                            PID: {event.pid} | NS: {event.namespace}
-                          </text>
-                        )}
-                      </g>
-                    ) : null
-                  }
-                  shape={({ cx, cy }) =>
-                    typeof cx === 'number' && typeof cy === 'number' ? (
-                      <g>
-                        <EbpfMarkerShape payload={event} cx={cx} cy={cy} />
-                      </g>
-                    ) : null
-                  }
-                />
-              );
-            })}
+            {showEbpf && ebpfMarkers.map((marker, idx) => (
+              <ReferenceDot
+                key={idx}
+                x={marker.x}
+                y={marker.y}
+                r={7}
+                fill={EBPF_COLOR}
+                stroke="#fff"
+                className="recharts-reference-dot"
+                onClick={e => {
+                  e.stopPropagation(); // Prevent global click handler
+                  setSelectedEbpfEvent(marker.event);
+                }}
+                style={{ cursor: 'pointer' }}
+                label={({ cx, cy }) =>
+                  typeof cx === 'number' && typeof cy === 'number' ? (
+                    <g transform={`translate(${marker.offset},0)`}>
+                      <text
+                        x={cx}
+                        y={cy + 10}
+                        fontSize="8"
+                        fill="#ff2050"
+                        textAnchor="middle"
+                        fontWeight="bold"
+                      >
+                        {marker.event.comm} ({marker.event.syscall})
+                      </text>
+                      <text
+                        x={cx}
+                        y={cy + 17}
+                        fontSize="7"
+                        fill="#aaa"
+                        textAnchor="middle"
+                      >
+                        PID: {marker.event.pid} | NS: {marker.event.namespace}
+                      </text>
+                    </g>
+                  ) : null
+                }
+                shape={({ cx, cy }) =>
+                  typeof cx === 'number' && typeof cy === 'number' ? (
+                    <g transform={`translate(${marker.offset},0)`}>
+                      <EbpfMarkerShape payload={marker.event} cx={cx} cy={cy} />
+                    </g>
+                  ) : null
+                }
+              />
+            ))}
           </LineChart>
           {renderLegend()}
+          {/* --- eBPF Info Panel: Show info for selected marker or last marker automatically --- */}
+          {(selectedEbpfEvent || lastEbpfMarker) && (
+            <div
+              className="ebpf-info-panel"
+              style={{
+                background: '#222',
+                color: '#fff',
+                padding: '12px',
+                margin: '10px auto 2',
+                borderRadius: '6px',
+                width: '1000px', // Match chart width
+                fontSize: '1rem',
+                boxShadow: '0 2px 8px #0008'
+              }}
+            >
+              <strong>eBPF Event Info</strong><br />
+              Namespace: {(selectedEbpfEvent || lastEbpfMarker.event).namespace}
+              Timestamp: {(selectedEbpfEvent || lastEbpfMarker.event).timestamp} 
+              Comm: {(selectedEbpfEvent || lastEbpfMarker.event).comm}
+              Syscall: {(selectedEbpfEvent || lastEbpfMarker.event).syscall}
+              PID: {(selectedEbpfEvent || lastEbpfMarker.event).pid}
+              {selectedEbpfEvent && (
+                <div style={{ marginTop: '8px', fontSize: '0.9em', color: '#aaa' }}>
+                  (Click anywhere outside a marker to clear selection)
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       {/* No data UI */}
       {step === 'nodata' && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#e00', fontSize: '1.2rem' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: DEATH_COLOR, fontSize: '1.2rem' }}>
           No more data was found or connectivity was lost.
         </div>
       )}
