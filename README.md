@@ -122,3 +122,5 @@ Alejandro Mercado Peña mercadoalex[at]gmail.com
 ![Earthworm Heartbeat Visualization](heartbeat04.png)
 # eBPF power unleashed
 ![Earthworm Heartbeat Visualization](heartbeat05.png)
+
+![Earthworm Heartbeat Visualization](heartbeat06.png)
