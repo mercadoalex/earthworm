@@ -124,3 +124,7 @@ Alejandro Mercado Peña mercadoalex[at]gmail.com
 ![Earthworm Heartbeat Visualization](heartbeat05.png)
 
 ![Earthworm Heartbeat Visualization](heartbeat06.png)
+
+## Links
+
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/earthworm)
