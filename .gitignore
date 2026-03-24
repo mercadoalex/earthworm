@@ -37,3 +37,6 @@ coverage/
 # Misc
 *.swp
 *.swo
+
+# Compiled server binary
+server

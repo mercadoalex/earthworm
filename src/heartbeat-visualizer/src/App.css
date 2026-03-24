@@ -1,5 +1,36 @@
 .App {
   text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #e0e0e0;
+  font-size: calc(10px + 2vmin);
+}
+
+.App-main {
+  background-color: #282c34;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 1rem 1rem;
+  color: #e0e0e0;
+}
+
+.App-footer {
+  background: #222;
+  color: #e0e0e0;
+  text-align: center;
+  padding: 0.5rem;
 }
 
 .App-logo {
@@ -13,26 +44,46 @@
   }
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
 .App-link {
   color: #61dafb;
 }
 
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Focus ring for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid #61dafb;
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid #61dafb;
+  outline-offset: 2px;
+}
+
+/* Responsive layout */
+@media (max-width: 768px) {
+  .App-header {
+    padding: 0.5rem;
+    font-size: calc(8px + 2vmin);
   }
-  to {
-    transform: rotate(360deg);
+
+  .App-main {
+    padding: 0 0.5rem 0.5rem;
+  }
+
+  .App-header h1 {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .App-main {
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
   }
 }
