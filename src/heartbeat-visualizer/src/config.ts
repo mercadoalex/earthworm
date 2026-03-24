@@ -40,6 +40,7 @@ export const config = {
   reconnect: {
     initialDelayMs: 1000,
     maxDelayMs: 30000,
+    maxRetries: 5,
   },
   manifestUrl: clusters[0].manifestUrl,
   ebpfManifestUrl: clusters[0].ebpfManifestUrl,

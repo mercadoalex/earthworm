@@ -130,15 +130,20 @@ func main() {
 	detector = NewAnomalyDetector(store, cfg.WarningThresholdS, cfg.CriticalThresholdS)
 	dispatcher = NewAlertDispatcher(cfg.WebhookURL, hub.BroadcastAlert)
 
-	// Set up HTTP routes with middleware
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/heartbeat", heartbeatHandler)
-	mux.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
-	mux.HandleFunc("/ws/heartbeats", func(w http.ResponseWriter, r *http.Request) {
+	// Set up HTTP routes
+	// WebSocket endpoint is registered directly (no CORS middleware — the upgrader handles origin checks)
+	topMux := http.NewServeMux()
+	topMux.HandleFunc("/ws/heartbeats", func(w http.ResponseWriter, r *http.Request) {
 		ServeWS(hub, w, r)
 	})
 
-	handler := LoggingMiddleware(setCORS(mux, cfg.CORSOrigins))
+	// API routes go through CORS + logging middleware
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/api/heartbeat", heartbeatHandler)
+	apiMux.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
+	topMux.Handle("/api/", LoggingMiddleware(setCORS(apiMux, cfg.CORSOrigins)))
+
+	handler := http.Handler(topMux)
 
 	log.Printf("Earthworm server running on :%d", cfg.Port)
 
@@ -154,5 +159,33 @@ func main() {
 		fmt.Printf("Node: %s, LastLease: %v, Status: %s\n", node.Name, node.LastLease.Format("15:04:05"), node.Status)
 	}
 
+	// Start live heartbeat simulation — broadcasts a heartbeat from a random node every 3 seconds
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			idx := time.Now().UnixNano() % int64(len(nodes))
+			node := nodes[idx]
+			hb := Heartbeat{
+				NodeName:  node.Name,
+				Namespace: "default",
+				Timestamp: time.Now(),
+				Status:    node.Status,
+			}
+			_ = store.Save(context.Background(), hb)
+			if hub != nil {
+				hub.BroadcastHeartbeat(hb)
+			}
+			if detector != nil {
+				if alert := detector.Evaluate(hb); alert != nil {
+					if dispatcher != nil {
+						dispatcher.Dispatch(*alert)
+					}
+				}
+			}
+		}
+	}()
+
+	fmt.Printf("\nServer running on :%d — broadcasting live heartbeats every 3s\n", cfg.Port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), handler))
 }

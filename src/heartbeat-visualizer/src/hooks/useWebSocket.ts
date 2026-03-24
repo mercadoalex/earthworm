@@ -53,6 +53,10 @@ export function useWebSocket(url: string = config.wsEndpoint): UseWebSocketRetur
     ws.onclose = () => {
       if (unmountedRef.current) return;
       setStatus('disconnected');
+      if (failureCountRef.current >= config.reconnect.maxRetries) {
+        console.warn(`WebSocket: gave up after ${config.reconnect.maxRetries} retries. Start the Go server and refresh to reconnect.`);
+        return;
+      }
       const delay = computeReconnectDelay(failureCountRef.current);
       failureCountRef.current++;
       reconnectTimerRef.current = setTimeout(connect, delay);

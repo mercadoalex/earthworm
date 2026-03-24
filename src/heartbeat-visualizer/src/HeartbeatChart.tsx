@@ -7,7 +7,9 @@ import { hasDeath, hasWarning } from './utils/chartUtils';
 import { useHeartbeatData } from './hooks/useHeartbeatData';
 import { useEbpfData } from './hooks/useEbpfData';
 import { useWebSocket } from './hooks/useWebSocket';
-import type { EbpfEvent, EbpfMarker, Alert } from './types/heartbeat';
+import type { EbpfEvent, EbpfMarker, Alert, HeartbeatEvent } from './types/heartbeat';
+import LiveActivityPanel from './LiveActivityPanel';
+import type { LiveEvent } from './LiveActivityPanel';
 
 // --- Toast notification for alerts ---
 interface ToastProps {
@@ -210,6 +212,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
   const [selectedEbpfEvent, setSelectedEbpfEvent] = useState<EbpfEvent | null>(null);
   const [hoveredEbpfIdx, setHoveredEbpfIdx] = useState<number | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
 
   // --- Zoom/Pan state ---
   const [xDomain, setXDomain] = useState<[number, number] | null>(null);
@@ -311,12 +314,17 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     return () => observer.disconnect();
   }, []);
 
-  // --- Handle incoming WebSocket alerts ---
+  // --- Handle incoming WebSocket messages ---
   useEffect(() => {
     if (!lastMessage) return;
+    const now = Date.now();
     if (lastMessage.type === 'alert') {
       const alert = lastMessage.payload as Alert;
       setAlerts((prev) => [...prev, alert]);
+      setLiveEvents((prev) => [...prev.slice(-199), { kind: 'alert', data: alert, receivedAt: now }]);
+    } else if (lastMessage.type === 'heartbeat') {
+      const hb = lastMessage.payload as HeartbeatEvent;
+      setLiveEvents((prev) => [...prev.slice(-199), { kind: 'heartbeat', data: hb, receivedAt: now }]);
     }
   }, [lastMessage]);
 
@@ -660,6 +668,9 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
           No more data was found or connectivity was lost.
         </div>
       )}
+
+      {/* Live Activity Feed — always visible */}
+      <LiveActivityPanel events={liveEvents} wsStatus={wsStatus} />
     </div>
   );
 };
