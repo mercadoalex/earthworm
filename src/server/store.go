@@ -16,18 +16,29 @@ type Heartbeat struct {
 	EbpfComm  string    `json:"ebpfComm,omitempty"`
 }
 
-// Store defines the interface for heartbeat event persistence.
+// Store defines the interface for heartbeat and kernel event persistence.
 type Store interface {
 	Save(ctx context.Context, event Heartbeat) error
 	GetByTimeRange(ctx context.Context, from, to time.Time) ([]Heartbeat, error)
 	GetLatestByNode(ctx context.Context, nodeName string) (*Heartbeat, error)
 	Ping(ctx context.Context) error
+
+	// Kernel event methods
+	SaveKernelEvent(ctx context.Context, event EnrichedEvent) error
+	GetKernelEvents(ctx context.Context, nodeName string, from, to time.Time) ([]EnrichedEvent, error)
+	GetKernelEventsByType(ctx context.Context, nodeName string, eventType string, from, to time.Time) ([]EnrichedEvent, error)
+
+	// Causal chain methods
+	SaveCausalChain(ctx context.Context, chain CausalChain) error
+	GetCausalChains(ctx context.Context, nodeName string, from, to time.Time) ([]CausalChain, error)
 }
 
 // MemoryStore is an in-memory implementation of the Store interface.
 type MemoryStore struct {
-	mu         sync.Mutex
-	heartbeats []Heartbeat
+	mu           sync.Mutex
+	heartbeats   []Heartbeat
+	kernelEvents []EnrichedEvent
+	causalChains []CausalChain
 }
 
 // NewMemoryStore creates a new in-memory store.
@@ -70,4 +81,54 @@ func (m *MemoryStore) GetLatestByNode(_ context.Context, nodeName string) (*Hear
 
 func (m *MemoryStore) Ping(_ context.Context) error {
 	return nil
+}
+
+func (m *MemoryStore) SaveKernelEvent(_ context.Context, event EnrichedEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.kernelEvents = append(m.kernelEvents, event)
+	return nil
+}
+
+func (m *MemoryStore) GetKernelEvents(_ context.Context, nodeName string, from, to time.Time) ([]EnrichedEvent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var result []EnrichedEvent
+	for _, e := range m.kernelEvents {
+		if e.NodeName == nodeName && !e.Timestamp.Before(from) && !e.Timestamp.After(to) {
+			result = append(result, e)
+		}
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) GetKernelEventsByType(_ context.Context, nodeName string, eventType string, from, to time.Time) ([]EnrichedEvent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var result []EnrichedEvent
+	for _, e := range m.kernelEvents {
+		if e.NodeName == nodeName && e.EventType == eventType && !e.Timestamp.Before(from) && !e.Timestamp.After(to) {
+			result = append(result, e)
+		}
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) SaveCausalChain(_ context.Context, chain CausalChain) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.causalChains = append(m.causalChains, chain)
+	return nil
+}
+
+func (m *MemoryStore) GetCausalChains(_ context.Context, nodeName string, from, to time.Time) ([]CausalChain, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var result []CausalChain
+	for _, c := range m.causalChains {
+		if c.NodeName == nodeName && !c.Timestamp.Before(from) && !c.Timestamp.After(to) {
+			result = append(result, c)
+		}
+	}
+	return result, nil
 }

@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import type { LeasesByNamespace, EbpfEvent, SwimSegment } from '../types/heartbeat';
+import type { LeasesByNamespace, EbpfEvent, SwimSegment, EnrichedKernelEvent, CausalChainMessage } from '../types/heartbeat';
 import { buildSwimSegments } from '../utils/timelineUtils';
 import { getStatusColor } from '../utils/chartUtils';
 import { getNodeAnomalies } from '../utils/chartUtils';
+import { config } from '../config';
 
 // Feature: realistic-data-and-visualizations
 
 interface TimelineViewProps {
   leasesData: LeasesByNamespace | null;
   ebpfEvents?: EbpfEvent[];
+  causalChain?: CausalChainMessage['payload'] | null;
   width?: number;
 }
 
@@ -18,13 +20,19 @@ interface GapDetail {
   y: number;
 }
 
+interface ReplayEvent {
+  events: EnrichedKernelEvent[];
+  loading: boolean;
+}
+
 const LANE_HEIGHT = 24;
 const LABEL_WIDTH = 120;
 const HEADER_HEIGHT = 30;
 const LANE_GAP = 2;
 
-const TimelineView: React.FC<TimelineViewProps> = ({ leasesData, ebpfEvents, width = 800 }) => {
+const TimelineView: React.FC<TimelineViewProps> = ({ leasesData, ebpfEvents, causalChain, width = 800 }) => {
   const [gapDetail, setGapDetail] = useState<GapDetail | null>(null);
+  const [replayData, setReplayData] = useState<ReplayEvent>({ events: [], loading: false });
 
   const segments = useMemo(
     () => buildSwimSegments(leasesData, ebpfEvents),
@@ -166,6 +174,65 @@ const TimelineView: React.FC<TimelineViewProps> = ({ leasesData, ebpfEvents, wid
             </circle>
           );
         })}
+
+        {/* Causal chain markers and arrows */}
+        {causalChain && causalChain.events.length > 0 && (() => {
+          const chainEvents = causalChain.events.filter(evt => {
+            const idx = nodeIndex.get(evt.nodeName);
+            return idx !== undefined && evt.timestamp >= timeMin && evt.timestamp <= timeMax;
+          });
+          return (
+            <g data-testid="causal-chain-overlay">
+              <defs>
+                <marker id="causal-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6" fill="#ffa500" />
+                </marker>
+              </defs>
+              {chainEvents.map((evt, i) => {
+                const idx = nodeIndex.get(evt.nodeName);
+                if (idx === undefined) return null;
+                const cx = toX(evt.timestamp);
+                const cy = HEADER_HEIGHT + idx * (LANE_HEIGHT + LANE_GAP) + LANE_HEIGHT / 2;
+                return (
+                  <g key={`causal-${i}`}>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={5}
+                      fill="none"
+                      stroke="#ffa500"
+                      strokeWidth={2}
+                      data-testid="causal-marker"
+                    >
+                      <title>{`[Causal] ${evt.eventType}: ${evt.comm} @ ${new Date(evt.timestamp).toLocaleTimeString()}`}</title>
+                    </circle>
+                    {/* Arrow to next event in chain */}
+                    {i < chainEvents.length - 1 && (() => {
+                      const next = chainEvents[i + 1];
+                      const nextIdx = nodeIndex.get(next.nodeName);
+                      if (nextIdx === undefined) return null;
+                      const nx = toX(next.timestamp);
+                      const ny = HEADER_HEIGHT + nextIdx * (LANE_HEIGHT + LANE_GAP) + LANE_HEIGHT / 2;
+                      return (
+                        <line
+                          x1={cx + 6}
+                          y1={cy}
+                          x2={nx - 6}
+                          y2={ny}
+                          stroke="#ffa500"
+                          strokeWidth={1.5}
+                          markerEnd="url(#causal-arrow)"
+                          opacity={0.7}
+                          data-testid="causal-arrow-line"
+                        />
+                      );
+                    })()}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })()}
       </svg>
 
       {/* Gap detail panel */}
@@ -191,7 +258,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ leasesData, ebpfEvents, wid
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <strong>{gapDetail.segment.nodeName}</strong>
             <button
-              onClick={() => setGapDetail(null)}
+              onClick={() => { setGapDetail(null); setReplayData({ events: [], loading: false }); }}
               aria-label="Close gap detail"
               style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}
             >
@@ -203,12 +270,74 @@ const TimelineView: React.FC<TimelineViewProps> = ({ leasesData, ebpfEvents, wid
           {gapDetail.segment.cause && <div>Cause: {gapDetail.segment.cause}</div>}
           <div>From: {new Date(gapDetail.segment.start).toLocaleTimeString()}</div>
           <div>To: {new Date(gapDetail.segment.end).toLocaleTimeString()}</div>
+
+          {/* Causal chain summary */}
+          {causalChain && causalChain.nodeName === gapDetail.segment.nodeName && (
+            <div style={{ marginTop: 6, padding: '4px 6px', background: '#2a2a1a', borderRadius: 4, border: '1px solid #665500' }} data-testid="causal-chain-summary">
+              <strong style={{ color: '#ffa500' }}>Causal Chain:</strong>
+              <div style={{ fontSize: '0.75rem', marginTop: 2 }}>{causalChain.summary}</div>
+              {causalChain.rootCause && (
+                <div style={{ fontSize: '0.75rem', color: '#ff8800' }}>Root cause: {causalChain.rootCause}</div>
+              )}
+            </div>
+          )}
+
           {gapDetail.segment.ebpfEvents && gapDetail.segment.ebpfEvents.length > 0 && (
             <div style={{ marginTop: 4 }}>
               <strong>eBPF Events:</strong>
               {gapDetail.segment.ebpfEvents.map((e, i) => (
                 <div key={i} style={{ fontSize: '0.75rem' }}>
                   {e.comm} ({e.syscall}) @ {new Date(e.timestamp).toLocaleTimeString()}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Replay button */}
+          <button
+            data-testid="replay-button"
+            onClick={async () => {
+              setReplayData({ events: [], loading: true });
+              try {
+                const from = new Date(gapDetail.segment.start).toISOString();
+                const to = new Date(gapDetail.segment.end).toISOString();
+                const resp = await fetch(
+                  `${config.apiBaseUrl}/api/replay?node=${encodeURIComponent(gapDetail.segment.nodeName)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+                );
+                if (resp.ok) {
+                  const data = await resp.json();
+                  setReplayData({ events: data.events || [], loading: false });
+                } else {
+                  setReplayData({ events: [], loading: false });
+                }
+              } catch {
+                setReplayData({ events: [], loading: false });
+              }
+            }}
+            style={{
+              marginTop: 6,
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              background: '#335',
+              color: '#aaf',
+              border: '1px solid #558',
+              borderRadius: 4,
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            {replayData.loading ? 'Loading…' : '▶ Replay'}
+          </button>
+
+          {/* Replay event list */}
+          {replayData.events.length > 0 && (
+            <div style={{ marginTop: 4, maxHeight: 150, overflowY: 'auto' }} data-testid="replay-event-list">
+              <strong>Replay ({replayData.events.length} events):</strong>
+              {replayData.events.map((evt, i) => (
+                <div key={i} style={{ fontSize: '0.7rem', borderBottom: '1px solid #333', padding: '2px 0' }}>
+                  {new Date(evt.timestamp).toLocaleTimeString()} — {evt.eventType}: {evt.comm}
+                  {evt.syscallName && ` (${evt.syscallName})`}
+                  {evt.podName && ` [${evt.podName}]`}
                 </div>
               ))}
             </div>

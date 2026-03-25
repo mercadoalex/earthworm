@@ -1,0 +1,13 @@
+apiVersion: v2
+name: earthworm
+description: Earthworm — eBPF-powered Kubernetes node heartbeat observability
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ebpf
+  - kubernetes
+  - observability
+  - heartbeat
+maintainers:
+  - name: Earthworm Team

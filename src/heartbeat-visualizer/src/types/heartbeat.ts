@@ -76,8 +76,8 @@ export interface ChartDataPoint {
 }
 
 export interface WebSocketMessage {
-  type: 'heartbeat' | 'alert' | 'status';
-  payload: HeartbeatEvent | Alert | Record<string, unknown>;
+  type: 'heartbeat' | 'alert' | 'status' | 'ebpf_event' | 'causal_chain' | 'prediction';
+  payload: HeartbeatEvent | Alert | EnrichedKernelEvent | CausalChainMessage['payload'] | PredictionMessage['payload'] | Record<string, unknown>;
 }
 
 // --- New types for multi-view visualizations ---
@@ -121,4 +121,58 @@ export interface HistogramBin {
 
 export interface NodeAnomaly extends Anomaly {
   nodeName: string;
+}
+
+// --- eBPF Kernel Observability types ---
+
+export interface EnrichedKernelEvent {
+  timestamp: number;
+  pid: number;
+  ppid: number;
+  comm: string;
+  cgroupId: number;
+  eventType: 'syscall' | 'process' | 'network';
+  // Syscall-specific
+  syscallName?: string;
+  returnValue?: number;
+  latencyNs?: number;
+  slowSyscall?: boolean;
+  // Process-specific
+  childPid?: number;
+  exitCode?: number;
+  criticalExit?: boolean;
+  // Network-specific
+  srcAddr?: string;
+  dstAddr?: string;
+  srcPort?: number;
+  dstPort?: number;
+  netEventType?: 'retransmit' | 'reset' | 'rtt_high';
+  rttUs?: number;
+  // Enrichment
+  podName?: string;
+  namespace?: string;
+  containerName?: string;
+  nodeName: string;
+  hostLevel?: boolean;
+}
+
+export interface CausalChainMessage {
+  type: 'causal_chain';
+  payload: {
+    nodeName: string;
+    timestamp: number;
+    events: EnrichedKernelEvent[];
+    summary: string;
+    rootCause: string;
+  };
+}
+
+export interface PredictionMessage {
+  type: 'prediction';
+  payload: {
+    nodeName: string;
+    confidence: number;
+    ttfSeconds: number;
+    patterns: string[];
+  };
 }

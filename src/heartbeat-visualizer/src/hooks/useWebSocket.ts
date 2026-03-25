@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { config } from '../config';
-import type { WebSocketMessage } from '../types/heartbeat';
+import type { WebSocketMessage, EnrichedKernelEvent, CausalChainMessage, PredictionMessage } from '../types/heartbeat';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 export interface UseWebSocketReturn {
   status: ConnectionStatus;
   lastMessage: WebSocketMessage | null;
+  lastEbpfEvent: EnrichedKernelEvent | null;
+  lastCausalChain: CausalChainMessage['payload'] | null;
+  lastPrediction: PredictionMessage['payload'] | null;
   sendMessage: (data: string) => void;
 }
 
@@ -22,6 +25,9 @@ export function computeReconnectDelay(failureCount: number): number {
 export function useWebSocket(url: string = config.wsEndpoint): UseWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
+  const [lastEbpfEvent, setLastEbpfEvent] = useState<EnrichedKernelEvent | null>(null);
+  const [lastCausalChain, setLastCausalChain] = useState<CausalChainMessage['payload'] | null>(null);
+  const [lastPrediction, setLastPrediction] = useState<PredictionMessage['payload'] | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const failureCountRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,6 +51,19 @@ export function useWebSocket(url: string = config.wsEndpoint): UseWebSocketRetur
       try {
         const parsed: WebSocketMessage = JSON.parse(event.data);
         setLastMessage(parsed);
+
+        // Route to type-specific state
+        switch (parsed.type) {
+          case 'ebpf_event':
+            setLastEbpfEvent(parsed.payload as EnrichedKernelEvent);
+            break;
+          case 'causal_chain':
+            setLastCausalChain(parsed.payload as CausalChainMessage['payload']);
+            break;
+          case 'prediction':
+            setLastPrediction(parsed.payload as PredictionMessage['payload']);
+            break;
+        }
       } catch {
         // Skip malformed messages
       }
@@ -88,5 +107,5 @@ export function useWebSocket(url: string = config.wsEndpoint): UseWebSocketRetur
     }
   }, []);
 
-  return { status, lastMessage, sendMessage };
+  return { status, lastMessage, lastEbpfEvent, lastCausalChain, lastPrediction, sendMessage };
 }

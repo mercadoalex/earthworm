@@ -1,0 +1,47 @@
+namespace: earthworm-system
+
+ebpf:
+  enabled: true
+  ringBufferSizeKB: 256
+
+agent:
+  image: earthworm/agent:latest
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "50Mi"
+    requests:
+      cpu: "100m"
+      memory: "25Mi"
+
+server:
+  replicas: 1
+  image: earthworm/server:latest
+  store: memory
+  warningThreshold: 10
+  criticalThreshold: 40
+  prediction:
+    enabled: true
+  replay:
+    retentionHours: 24
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "250m"
+      memory: "128Mi"
+
+ui:
+  replicas: 1
+  image: earthworm/ui:latest
+  serviceType: ClusterIP
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+    requests:
+      cpu: "100m"
+      memory: "64Mi"

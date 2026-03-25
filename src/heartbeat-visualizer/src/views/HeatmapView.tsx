@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { LeasesByNamespace, HeatmapCell, EbpfEvent } from '../types/heartbeat';
+import type { LeasesByNamespace, HeatmapCell, EbpfEvent, PredictionMessage } from '../types/heartbeat';
 import { buildHeatmapData } from '../utils/heatmapUtils';
 import { getStatusColor } from '../utils/chartUtils';
 import { getNodeAnomalies } from '../utils/chartUtils';
@@ -9,6 +9,7 @@ import { getNodeAnomalies } from '../utils/chartUtils';
 interface HeatmapViewProps {
   leasesData: LeasesByNamespace | null;
   ebpfEvents?: EbpfEvent[];
+  prediction?: PredictionMessage['payload'] | null;
   width?: number;
 }
 
@@ -35,7 +36,7 @@ const statusPriority: Record<string, number> = {
   ready: 2,
 };
 
-const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width = 800 }) => {
+const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, prediction, width = 800 }) => {
   const [sortMode, setSortMode] = useState<SortMode>('health');
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
@@ -97,6 +98,10 @@ const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width
 
   const isAnomaly = (cell: HeatmapCell): boolean => {
     return anomalySet.has(`${cell.nodeName}-${cell.timeBucket}-${cell.timeBucketEnd}`);
+  };
+
+  const isPredicted = (nodeName: string): boolean => {
+    return prediction != null && prediction.nodeName === nodeName;
   };
 
   const handleCellHover = (cell: HeatmapCell, event: React.MouseEvent) => {
@@ -181,6 +186,7 @@ const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width
                 if (!cell) return null;
                 const color = getStatusColor(cell.status);
                 const anomaly = isAnomaly(cell);
+                const predicted = isPredicted(node);
                 return (
                   <rect
                     key={`${node}-${t}`}
@@ -191,14 +197,15 @@ const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width
                     fill={color}
                     opacity={0.85}
                     rx={1}
-                    className={anomaly ? 'heatmap-anomaly-pulse' : undefined}
-                    stroke={anomaly ? '#fff' : 'none'}
-                    strokeWidth={anomaly ? 1.5 : 0}
+                    className={predicted ? 'heatmap-prediction-pulse' : anomaly ? 'heatmap-anomaly-pulse' : undefined}
+                    stroke={predicted ? '#ffa500' : anomaly ? '#fff' : 'none'}
+                    strokeWidth={predicted ? 2 : anomaly ? 1.5 : 0}
                     onMouseEnter={(e) => handleCellHover(cell, e)}
                     onMouseLeave={() => setTooltip(null)}
                     data-testid="heatmap-cell"
                     data-status={cell.status}
                     data-node={cell.nodeName}
+                    data-predicted={predicted ? 'true' : undefined}
                   />
                 );
               })}
@@ -233,6 +240,30 @@ const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width
         </div>
       )}
 
+      {/* Prediction indicator */}
+      {prediction && (
+        <div
+          data-testid="prediction-indicator"
+          style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            background: '#2a2000',
+            border: '1px solid #ffa500',
+            borderRadius: 4,
+            fontSize: '0.8rem',
+            color: '#ffa500',
+          }}
+        >
+          ⚠ Prediction: <strong>{prediction.nodeName}</strong> may fail in {prediction.ttfSeconds.toFixed(0)}s
+          (confidence: {(prediction.confidence * 100).toFixed(0)}%)
+          {prediction.patterns.length > 0 && (
+            <div style={{ fontSize: '0.7rem', color: '#cc8800' }}>
+              Patterns: {prediction.patterns.join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+
       <style>{`
         @keyframes anomalyPulse {
           0%, 100% { stroke-opacity: 1; }
@@ -240,6 +271,13 @@ const HeatmapView: React.FC<HeatmapViewProps> = ({ leasesData, ebpfEvents, width
         }
         .heatmap-anomaly-pulse {
           animation: anomalyPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes predictionPulse {
+          0%, 100% { stroke-opacity: 1; stroke-width: 2; }
+          50% { stroke-opacity: 0.4; stroke-width: 3; }
+        }
+        .heatmap-prediction-pulse {
+          animation: predictionPulse 1s ease-in-out infinite;
         }
       `}</style>
     </div>

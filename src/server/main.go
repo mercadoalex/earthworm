@@ -13,13 +13,17 @@ import (
 	"earthworm/src/kubernetes"
 )
 
-// Global store, config, hub, anomaly detector, and alert dispatcher.
+// Global store, config, hub, anomaly detector, alert dispatcher, and eBPF components.
 var (
-	store      Store
-	cfg        Config
-	hub        *Hub
-	detector   *AnomalyDetector
-	dispatcher *AlertDispatcher
+	store        Store
+	cfg          Config
+	hub          *Hub
+	detector     *AnomalyDetector
+	dispatcher   *AlertDispatcher
+	chainBuilder *CausalChainBuilder
+	predEngine   *PredictionEngine
+	replayStore  *ReplayStore
+	ebpfEnabled  bool
 )
 
 // Dummy PodInfo slice for correlation testing
@@ -31,6 +35,40 @@ var podInfos = []kubernetes.PodInfo{
 		ContainerIDs: []string{"node-01"},
 		CgroupPaths:  []string{"/sys/fs/cgroup/kubepods/node-01"},
 	},
+}
+
+// ebpfEventsHandler receives enriched kernel events from the agent via POST.
+func ebpfEventsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var events []EnrichedEvent
+	if err := json.NewDecoder(r.Body).Decode(&events); err != nil {
+		// Try single event
+		var single EnrichedEvent
+		if err2 := json.Unmarshal([]byte(err.Error()), &single); err2 != nil {
+			writeJSONError(w, fmt.Sprintf("Invalid JSON: %s", err.Error()), http.StatusBadRequest)
+			return
+		}
+		events = []EnrichedEvent{single}
+	}
+
+	for _, event := range events {
+		if err := store.SaveKernelEvent(context.Background(), event); err != nil {
+			log.Printf("Failed to save kernel event: %v", err)
+			continue
+		}
+		if hub != nil {
+			hub.BroadcastEbpfEvent(event)
+		}
+		if predEngine != nil {
+			predEngine.Analyze(event.NodeName, []EnrichedEvent{event})
+		}
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 // heartbeatHandler receives heartbeat data via POST.
@@ -108,7 +146,10 @@ func main() {
 	simNodes := flag.Int("sim-nodes", 50, "Number of simulated nodes")
 	simOutput := flag.String("sim-output", "", "Output directory for simulation data files")
 	simSeed := flag.Int64("sim-seed", 0, "Random seed for simulation (0 = time-based)")
+	ebpfFlag := flag.Bool("ebpf", false, "Enable eBPF kernel observability (requires Linux 5.8+ with CAP_BPF)")
 	flag.Parse()
+
+	ebpfEnabled = *ebpfFlag
 
 	cfg = LoadConfig()
 
@@ -139,6 +180,17 @@ func main() {
 	detector = NewAnomalyDetector(store, cfg.WarningThresholdS, cfg.CriticalThresholdS)
 	dispatcher = NewAlertDispatcher(cfg.WebhookURL, hub.BroadcastAlert)
 
+	// Initialize eBPF components (causal chain builder, prediction engine, replay store)
+	chainBuilder = NewCausalChainBuilder(store, hub)
+	predEngine = NewPredictionEngine(store, hub)
+	replayStore = NewReplayStore(store, defaultRetention)
+
+	if ebpfEnabled {
+		log.Println("eBPF kernel observability enabled")
+	} else {
+		log.Println("eBPF kernel observability disabled, running in mock mode")
+	}
+
 	// Set up HTTP routes
 	// WebSocket endpoint is registered directly (no CORS middleware — the upgrader handles origin checks)
 	topMux := http.NewServeMux()
@@ -150,6 +202,9 @@ func main() {
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/api/heartbeat", heartbeatHandler)
 	apiMux.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
+	apiMux.HandleFunc("/api/ebpf/events", ebpfEventsHandler)
+	apiMux.HandleFunc("/api/replay", replayHandler(replayStore))
+	apiMux.HandleFunc("/api/predictions/accuracy", predictionAccuracyHandler(predEngine))
 	topMux.Handle("/api/", LoggingMiddleware(setCORS(apiMux, cfg.CORSOrigins)))
 
 	handler := http.Handler(topMux)

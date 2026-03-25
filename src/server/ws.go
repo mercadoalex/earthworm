@@ -93,6 +93,39 @@ func (h *Hub) BroadcastAlert(alert Alert) {
 	h.broadcast <- data
 }
 
+// BroadcastEbpfEvent sends an enriched kernel event to all connected clients.
+func (h *Hub) BroadcastEbpfEvent(event EnrichedEvent) {
+	msg := WSMessage{Type: "ebpf_event", Payload: event}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal ebpf_event WS message: %v", err)
+		return
+	}
+	h.broadcast <- data
+}
+
+// BroadcastCausalChain sends a causal chain to all connected clients.
+func (h *Hub) BroadcastCausalChain(chain CausalChain) {
+	msg := WSMessage{Type: "causal_chain", Payload: chain}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal causal_chain WS message: %v", err)
+		return
+	}
+	h.broadcast <- data
+}
+
+// BroadcastPrediction sends a prediction alert to all connected clients.
+func (h *Hub) BroadcastPrediction(prediction Prediction) {
+	msg := WSMessage{Type: "prediction", Payload: prediction}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal prediction WS message: %v", err)
+		return
+	}
+	h.broadcast <- data
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }

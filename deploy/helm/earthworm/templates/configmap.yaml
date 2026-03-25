@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: earthworm-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: earthworm
+data:
+  store: {{ .Values.server.store | quote }}
+  warningThreshold: {{ .Values.server.warningThreshold | quote }}
+  criticalThreshold: {{ .Values.server.criticalThreshold | quote }}
+  ringBufferSizeKB: {{ .Values.ebpf.ringBufferSizeKB | quote }}
+  predictionEnabled: {{ .Values.server.prediction.enabled | quote }}
+  replayRetentionHours: {{ .Values.server.replay.retentionHours | quote }}

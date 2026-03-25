@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earthworm-server
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: earthworm
+    component: server
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      app: earthworm
+      component: server
+  template:
+    metadata:
+      labels:
+        app: earthworm
+        component: server
+    spec:
+      serviceAccountName: earthworm
+      containers:
+        - name: server
+          image: {{ .Values.server.image }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: EARTHWORM_STORE
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: store
+            - name: EARTHWORM_WARNING_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: warningThreshold
+            - name: EARTHWORM_CRITICAL_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: criticalThreshold
+            - name: EARTHWORM_PREDICTION_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: predictionEnabled
+            - name: EARTHWORM_REPLAY_RETENTION_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: replayRetentionHours
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}

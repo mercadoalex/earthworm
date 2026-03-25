@@ -1,132 +1,55 @@
-// heartbeat.c
-// This eBPF program intercepts heartbeat-like signals from Kubernetes clusters by tracing process context switches.
-// It collects extended process metadata: PID, parent PID, command name, cgroup info, and timestamp.
-// The data is sent to user space via a perf event array for further correlation with Kubernetes resources.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * heartbeat.c — eBPF program that intercepts heartbeat-like signals from
+ * Kubernetes clusters by tracing process context switches.
+ *
+ * Collects extended process metadata (PID, parent PID, command name,
+ * cgroup ID, timestamp) and emits events to the shared BPF ring buffer.
+ *
+ * Refactored from the original perf-event-array version to use:
+ *   - BPF ring buffer (BPF_MAP_TYPE_RINGBUF) via common.h
+ *   - BPF CO-RE helpers (vmlinux.h + BPF_CORE_READ) for portability
+ */
 
-#include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_core_read.h>
+#include "headers/common.h"
 
-// BIG WARNING: The following typedefs are ONLY FOR TESTING PURPOSES.
-// They should NOT be used in production. Use proper kernel headers in production environments!
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long long u64;
-typedef signed char s8;
-typedef signed short s16;
-typedef signed int s32;
-typedef signed long long s64;
-typedef u8 uint8_t;
-typedef u16 uint16_t;
-typedef u32 uint32_t;
-typedef s8 int8_t;
-typedef s16 int16_t;
-typedef s32 int32_t;
-// END OF TESTING-ONLY TYPEDEFS
-
-// Kernel version check macro
-#ifndef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE KERNEL_VERSION(0,0,0)
-#endif
-
-// Structure to hold extended heartbeat data
-struct heartbeat_data {
-    u32 pid;                // Process ID of the heartbeat signal sender
-    u32 ppid;               // Parent PID
-    char comm[16];          // Command name (TASK_COMM_LEN = 16)
-    char cgroup_path[64];   // Cgroup path (truncated for demo)
-    u64 timestamp;          // Timestamp of the heartbeat signal
-};
-
-// Perf event array map to send data to user space
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __type(key, u32);
-    __type(value, u32);
-} heartbeat_map SEC(".maps");
-
-// Helper to get cgroup path (robust handling for different kernel versions and null pointers)
-static __inline int get_cgroup_path(struct task_struct *task, char *buf, int buflen) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
-    struct cgroup_subsys_state *css = NULL;
-    struct cgroup *cgrp = NULL;
-    struct kernfs_node *kn = NULL;
-
-    // Safely read cgroups pointer
-    struct cgroups *cgs = NULL;
-    bpf_probe_read(&cgs, sizeof(cgs), &task->cgroups);
-    if (!cgs)
-        goto unsupported;
-
-    // Read subsys[0] (usually for cpu controller)
-    bpf_probe_read(&css, sizeof(css), &cgs->subsys[0]);
-    if (!css)
-        goto unsupported;
-
-    bpf_probe_read(&cgrp, sizeof(cgrp), &css->cgroup);
-    if (!cgrp)
-        goto unsupported;
-
-    bpf_probe_read(&kn, sizeof(kn), &cgrp->kn);
-    if (!kn)
-        goto unsupported;
-
-    // Read cgroup name
-    bpf_probe_read_str(buf, buflen, kn->name);
-    return 0;
-
-unsupported:
-    bpf_probe_read_str(buf, buflen, "unsupported_or_null");
-    return -1;
-#else
-    // For older kernels, cgroup path extraction may differ or be unsupported
-    bpf_probe_read_str(buf, buflen, "unsupported_kernel");
-    return -1;
-#endif
-}
-
-// Helper to print kernel version (for debugging, output to trace pipe)
-static __inline void print_kernel_version() {
-    // Compose kernel version string
-    char version[32];
-    int major = (LINUX_VERSION_CODE >> 16) & 0xFF;
-    int minor = (LINUX_VERSION_CODE >> 8) & 0xFF;
-    int patch = LINUX_VERSION_CODE & 0xFF;
-    bpf_trace_printk("Kernel version: %d.%d.%d\n", major, minor, patch);
-}
-
-// Tracepoint handler for context switch events
+/*
+ * Tracepoint handler for context switch events.
+ *
+ * On every sched_switch we capture the incoming process's metadata and
+ * submit a kernel_event to the ring buffer.  The event_type is set to
+ * EVENT_TYPE_PROCESS since this tracks scheduling / process activity.
+ */
 SEC("tracepoint/sched/sched_switch")
-int handle_heartbeat(struct trace_event_raw_sched_switch *ctx) {
-    struct heartbeat_data data = {};
-    struct task_struct *task;
+int handle_heartbeat(struct trace_event_raw_sched_switch *ctx)
+{
+    struct kernel_event *evt;
 
-    // Print kernel version for debugging
-    print_kernel_version();
+    evt = bpf_ringbuf_reserve(&events, sizeof(*evt), 0);
+    if (!evt)
+        return 0;
 
-    // Get next process PID from context switch event
-    data.pid = BPF_CORE_READ(ctx, next_pid);
+    __builtin_memset(evt, 0, sizeof(*evt));
 
-    // Get current task_struct (process info)
-    task = (struct task_struct *)bpf_get_current_task();
+    /* Common fields */
+    evt->timestamp = bpf_ktime_get_ns();
+    evt->event_type = EVENT_TYPE_PROCESS;
 
-    // Get parent PID
-    data.ppid = BPF_CORE_READ(task, real_parent, pid);
+    /* PID of the process being switched in */
+    evt->pid = BPF_CORE_READ(ctx, next_pid);
 
-    // Get command name
-    bpf_get_current_comm(&data.comm, sizeof(data.comm));
+    /* Current task metadata via CO-RE */
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    // Get cgroup path (truncated, for demo)
-    get_cgroup_path(task, data.cgroup_path, sizeof(data.cgroup_path));
+    evt->ppid      = BPF_CORE_READ(task, real_parent, tgid);
+    evt->tgid      = BPF_CORE_READ(task, tgid);
+    evt->cgroup_id = bpf_get_current_cgroup_id();
 
-    // Get timestamp (nanoseconds since boot)
-    data.timestamp = bpf_ktime_get_ns();
+    /* Command name */
+    bpf_get_current_comm(&evt->comm, sizeof(evt->comm));
 
-    // Send heartbeat data to user space via perf event array
-    bpf_perf_event_output(ctx, &heartbeat_map, BPF_F_CURRENT_CPU, &data, sizeof(data));
+    bpf_ringbuf_submit(evt, 0);
     return 0;
 }
 
-// Required license declaration for eBPF programs
 char _license[] SEC("license") = "GPL";

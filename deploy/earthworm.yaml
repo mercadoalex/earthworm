@@ -1,0 +1,242 @@
+# Earthworm standalone Kubernetes manifest
+# Install: kubectl apply -f deploy/earthworm.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: earthworm-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: earthworm
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: earthworm
+  labels:
+    app: earthworm
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: earthworm
+  labels:
+    app: earthworm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: earthworm
+subjects:
+  - kind: ServiceAccount
+    name: earthworm
+    namespace: earthworm-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: earthworm-config
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+data:
+  store: "memory"
+  warningThreshold: "10"
+  criticalThreshold: "40"
+  ringBufferSizeKB: "256"
+  predictionEnabled: "true"
+  replayRetentionHours: "24"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: earthworm-agent
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+    component: agent
+spec:
+  selector:
+    matchLabels:
+      app: earthworm
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: earthworm
+        component: agent
+    spec:
+      hostPID: true
+      serviceAccountName: earthworm
+      containers:
+        - name: agent
+          image: earthworm/agent:latest
+          securityContext:
+            privileged: false
+            capabilities:
+              add:
+                - CAP_BPF
+                - CAP_SYS_ADMIN
+                - CAP_PERFMON
+          env:
+            - name: EARTHWORM_RING_BUFFER_SIZE_KB
+              value: "256"
+            - name: EARTHWORM_SERVER_URL
+              value: "http://earthworm-server.earthworm-system.svc.cluster.local:8080"
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "50Mi"
+            requests:
+              cpu: "100m"
+              memory: "25Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earthworm-server
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: earthworm
+      component: server
+  template:
+    metadata:
+      labels:
+        app: earthworm
+        component: server
+    spec:
+      serviceAccountName: earthworm
+      containers:
+        - name: server
+          image: earthworm/server:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: EARTHWORM_STORE
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: store
+            - name: EARTHWORM_WARNING_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: warningThreshold
+            - name: EARTHWORM_CRITICAL_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: criticalThreshold
+            - name: EARTHWORM_PREDICTION_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: predictionEnabled
+            - name: EARTHWORM_REPLAY_RETENTION_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: earthworm-config
+                  key: replayRetentionHours
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earthworm-ui
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+    component: ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: earthworm
+      component: ui
+  template:
+    metadata:
+      labels:
+        app: earthworm
+        component: ui
+    spec:
+      containers:
+        - name: ui
+          image: earthworm/ui:latest
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earthworm-server
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+    component: server
+spec:
+  type: ClusterIP
+  selector:
+    app: earthworm
+    component: server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earthworm-ui
+  namespace: earthworm-system
+  labels:
+    app: earthworm
+    component: ui
+spec:
+  type: ClusterIP
+  selector:
+    app: earthworm
+    component: ui
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http

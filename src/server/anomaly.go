@@ -7,11 +7,12 @@ import (
 
 // Alert represents an anomaly alert for a node.
 type Alert struct {
-	NodeName  string    `json:"nodeName"`
-	Namespace string    `json:"namespace"`
-	Gap       float64   `json:"gapSeconds"`
-	Severity  string    `json:"severity"` // "warning" or "critical"
-	Timestamp time.Time `json:"timestamp"`
+	NodeName     string          `json:"nodeName"`
+	Namespace    string          `json:"namespace"`
+	Gap          float64         `json:"gapSeconds"`
+	Severity     string          `json:"severity"` // "warning" or "critical"
+	Timestamp    time.Time       `json:"timestamp"`
+	KernelEvents []EnrichedEvent `json:"kernelEvents,omitempty"`
 }
 
 // AnomalyDetector evaluates heartbeat gaps against thresholds.
@@ -32,6 +33,7 @@ func NewAnomalyDetector(store Store, warningSeconds, criticalSeconds int) *Anoma
 
 // Evaluate checks the gap between the incoming event and the latest stored event for the same node.
 // Returns an Alert if the gap exceeds a threshold, or nil if normal.
+// When correlated kernel events exist in the preceding 120s window, they are included in the alert.
 func (ad *AnomalyDetector) Evaluate(event Heartbeat) *Alert {
 	latest, err := ad.store.GetLatestByNode(context.Background(), event.NodeName)
 	if err != nil || latest == nil {
@@ -48,11 +50,20 @@ func (ad *AnomalyDetector) Evaluate(event Heartbeat) *Alert {
 		severity = "critical"
 	}
 
-	return &Alert{
+	alert := &Alert{
 		NodeName:  event.NodeName,
 		Namespace: event.Namespace,
 		Gap:       gap.Seconds(),
 		Severity:  severity,
 		Timestamp: event.Timestamp,
 	}
+
+	// Attach correlated kernel events from the preceding 120s window
+	from := event.Timestamp.Add(-120 * time.Second)
+	kernelEvents, err := ad.store.GetKernelEvents(context.Background(), event.NodeName, from, event.Timestamp)
+	if err == nil && len(kernelEvents) > 0 {
+		alert.KernelEvents = kernelEvents
+	}
+
+	return alert
 }

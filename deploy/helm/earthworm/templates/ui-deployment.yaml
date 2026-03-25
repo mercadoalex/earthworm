@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earthworm-ui
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: earthworm
+    component: ui
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      app: earthworm
+      component: ui
+  template:
+    metadata:
+      labels:
+        app: earthworm
+        component: ui
+    spec:
+      containers:
+        - name: ui
+          image: {{ .Values.ui.image }}
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}

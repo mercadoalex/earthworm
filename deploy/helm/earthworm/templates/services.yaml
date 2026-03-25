@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: earthworm-server
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: earthworm
+    component: server
+spec:
+  type: ClusterIP
+  selector:
+    app: earthworm
+    component: server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earthworm-ui
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: earthworm
+    component: ui
+spec:
+  type: {{ .Values.ui.serviceType }}
+  selector:
+    app: earthworm
+    component: ui
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http

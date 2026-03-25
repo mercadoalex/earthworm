@@ -122,3 +122,93 @@ func (r *RedisStore) scanKeys(ctx context.Context, pattern string) ([]string, er
 	}
 	return keys, nil
 }
+
+func (r *RedisStore) kernelEventKey(nodeName string) string {
+	return fmt.Sprintf("kernel_event:%s", nodeName)
+}
+
+func (r *RedisStore) causalChainKey(nodeName string) string {
+	return fmt.Sprintf("causal_chain:%s", nodeName)
+}
+
+func (r *RedisStore) SaveKernelEvent(ctx context.Context, event EnrichedEvent) error {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal kernel event: %w", err)
+	}
+	score := float64(event.Timestamp.UnixMilli())
+	key := r.kernelEventKey(event.NodeName)
+
+	pipe := r.client.Pipeline()
+	pipe.ZAdd(ctx, key, &redis.Z{Score: score, Member: string(data)})
+	pipe.Expire(ctx, key, r.ttl)
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+func (r *RedisStore) GetKernelEvents(ctx context.Context, nodeName string, from, to time.Time) ([]EnrichedEvent, error) {
+	key := r.kernelEventKey(nodeName)
+	members, err := r.client.ZRangeByScore(ctx, key, &redis.ZRangeBy{
+		Min: fmt.Sprintf("%f", float64(from.UnixMilli())),
+		Max: fmt.Sprintf("%f", float64(to.UnixMilli())),
+	}).Result()
+	if err != nil {
+		return nil, err
+	}
+	var result []EnrichedEvent
+	for _, m := range members {
+		var e EnrichedEvent
+		if err := json.Unmarshal([]byte(m), &e); err == nil {
+			result = append(result, e)
+		}
+	}
+	return result, nil
+}
+
+func (r *RedisStore) GetKernelEventsByType(ctx context.Context, nodeName string, eventType string, from, to time.Time) ([]EnrichedEvent, error) {
+	events, err := r.GetKernelEvents(ctx, nodeName, from, to)
+	if err != nil {
+		return nil, err
+	}
+	var result []EnrichedEvent
+	for _, e := range events {
+		if e.EventType == eventType {
+			result = append(result, e)
+		}
+	}
+	return result, nil
+}
+
+func (r *RedisStore) SaveCausalChain(ctx context.Context, chain CausalChain) error {
+	data, err := json.Marshal(chain)
+	if err != nil {
+		return fmt.Errorf("marshal causal chain: %w", err)
+	}
+	score := float64(chain.Timestamp.UnixMilli())
+	key := r.causalChainKey(chain.NodeName)
+
+	pipe := r.client.Pipeline()
+	pipe.ZAdd(ctx, key, &redis.Z{Score: score, Member: string(data)})
+	pipe.Expire(ctx, key, r.ttl)
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+func (r *RedisStore) GetCausalChains(ctx context.Context, nodeName string, from, to time.Time) ([]CausalChain, error) {
+	key := r.causalChainKey(nodeName)
+	members, err := r.client.ZRangeByScore(ctx, key, &redis.ZRangeBy{
+		Min: fmt.Sprintf("%f", float64(from.UnixMilli())),
+		Max: fmt.Sprintf("%f", float64(to.UnixMilli())),
+	}).Result()
+	if err != nil {
+		return nil, err
+	}
+	var result []CausalChain
+	for _, m := range members {
+		var c CausalChain
+		if err := json.Unmarshal([]byte(m), &c); err == nil {
+			result = append(result, c)
+		}
+	}
+	return result, nil
+}
