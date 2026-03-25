@@ -7,9 +7,16 @@ import { hasDeath, hasWarning } from './utils/chartUtils';
 import { useHeartbeatData } from './hooks/useHeartbeatData';
 import { useEbpfData } from './hooks/useEbpfData';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useViewContext } from './contexts/ViewContext';
 import type { EbpfEvent, EbpfMarker, Alert, HeartbeatEvent } from './types/heartbeat';
 import LiveActivityPanel from './LiveActivityPanel';
 import type { LiveEvent } from './LiveActivityPanel';
+import ViewSelector from './ViewSelector';
+import AnomalyBadge from './components/AnomalyBadge';
+import HeatmapView from './views/HeatmapView';
+import TimelineView from './views/TimelineView';
+import HistogramView from './views/HistogramView';
+import NodeTable from './views/NodeTable';
 
 // --- Toast notification for alerts ---
 interface ToastProps {
@@ -204,6 +211,9 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
 
   const { status: wsStatus, lastMessage } = useWebSocket(cluster?.wsEndpoint);
 
+  // --- ViewContext for shared zoom/pan state ---
+  const { activeView, xDomain, setXDomain } = useViewContext();
+
   // --- Local UI state ---
   const [noise, setNoise] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -214,8 +224,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
 
-  // --- Zoom/Pan state ---
-  const [xDomain, setXDomain] = useState<[number, number] | null>(null);
+  // --- Zoom/Pan state (brush is local, xDomain comes from ViewContext) ---
   const [brushStart, setBrushStart] = useState<number | null>(null);
   const [brushEnd, setBrushEnd] = useState<number | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -251,11 +260,11 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     }
     setBrushStart(null);
     setBrushEnd(null);
-  }, [brushStart, brushEnd]);
+  }, [brushStart, brushEnd, setXDomain]);
 
   const handleResetZoom = useCallback(() => {
     setXDomain(null);
-  }, []);
+  }, [setXDomain]);
 
   // Pan handlers via mouse events on the chart container
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -287,7 +296,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
       newRight = fullRange[1];
     }
     setXDomain([Math.max(newLeft, fullRange[0]), Math.min(newRight, fullRange[1])]);
-  }, [isPanning, fullRange]);
+  }, [isPanning, fullRange, setXDomain]);
 
   const handlePanEnd = useCallback(() => {
     setIsPanning(false);
@@ -468,6 +477,20 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
             restoreEbpfData={restoreEbpfData}
           />
 
+          {/* View Selector */}
+          <ViewSelector />
+
+          {/* Anomaly Badge */}
+          <div style={{ textAlign: 'center', margin: '6px 0' }}>
+            <AnomalyBadge
+              leasesData={leasesData}
+              onZoomToAnomaly={(from, to) => {
+                const padding = (to - from) * 0.2;
+                setXDomain([from - padding, to + padding]);
+              }}
+            />
+          </div>
+
           {/* Reset Zoom button */}
           {xDomain && (
             <div style={{ textAlign: 'center', marginBottom: '6px' }}>
@@ -489,174 +512,202 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
             </div>
           )}
 
-          <div
-            ref={chartContainerRef}
-            onMouseDown={handlePanStart}
-            onMouseMove={handlePanMove}
-            onMouseUp={handlePanEnd}
-            onMouseLeave={handlePanEnd}
-            style={{ cursor: isPanning ? 'grabbing' : xDomain ? 'grab' : 'crosshair' }}
-          >
-          <LineChart
-            width={chartWidth}
-            height={500}
-            data={chartData}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-          >
-            <CartesianGrid stroke="#ccc" />
-            <XAxis
-              dataKey="timestamp"
-              domain={xDomain ?? ['dataMin', 'dataMax']}
-              type="number"
-              tickFormatter={(tick: number) => {
-                const date = new Date(tick);
-                return date.toLocaleTimeString('en-US', { hour12: false });
-              }}
-              tick={{ fontSize: 11, fill: '#ccc' }}
-              allowDataOverflow
-            />
-            <YAxis tick={{ fontSize: 11, fill: '#ccc' }} />
-            <Tooltip
-              contentStyle={{
-                background: '#222',
-                color: '#ccc',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '0.95rem',
-              }}
-              itemStyle={{
-                color: selectedIdx !== null
-                  ? config.colors.hover[selectedIdx % config.colors.hover.length]
-                  : config.colors.healthy,
-              }}
-              labelFormatter={(label) => `heartbeat: ${label}`}
-              content={<CustomTooltip />}
-            />
+          {/* Active view based on ViewContext */}
+          {activeView === 'line' && (
+            <>
+              <div
+                ref={chartContainerRef}
+                onMouseDown={handlePanStart}
+                onMouseMove={handlePanMove}
+                onMouseUp={handlePanEnd}
+                onMouseLeave={handlePanEnd}
+                style={{ cursor: isPanning ? 'grabbing' : xDomain ? 'grab' : 'crosshair' }}
+              >
+              <LineChart
+                width={chartWidth}
+                height={500}
+                data={chartData}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+              >
+                <CartesianGrid stroke="#ccc" />
+                <XAxis
+                  dataKey="timestamp"
+                  domain={xDomain ?? ['dataMin', 'dataMax']}
+                  type="number"
+                  tickFormatter={(tick: number) => {
+                    const date = new Date(tick);
+                    return date.toLocaleTimeString('en-US', { hour12: false });
+                  }}
+                  tick={{ fontSize: 11, fill: '#ccc' }}
+                  allowDataOverflow
+                />
+                <YAxis tick={{ fontSize: 11, fill: '#ccc' }} />
+                <Tooltip
+                  contentStyle={{
+                    background: '#222',
+                    color: '#ccc',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.95rem',
+                  }}
+                  itemStyle={{
+                    color: selectedIdx !== null
+                      ? config.colors.hover[selectedIdx % config.colors.hover.length]
+                      : config.colors.healthy,
+                  }}
+                  labelFormatter={(label) => `heartbeat: ${label}`}
+                  content={<CustomTooltip />}
+                />
 
-            {/* Render heartbeat lines */}
-            {selectedIdx === null
-              ? namespaces.map((ns) => {
-                  const death = leasesData ? hasDeath(leasesData[ns]) : false;
-                  return (
+                {/* Render heartbeat lines */}
+                {selectedIdx === null
+                  ? namespaces.map((ns) => {
+                      const death = leasesData ? hasDeath(leasesData[ns]) : false;
+                      return (
+                        <Line
+                          key={ns}
+                          type="monotone"
+                          dataKey={ns}
+                          stroke={death ? config.colors.death : config.colors.healthy}
+                          dot={false}
+                          strokeWidth={2}
+                          isAnimationActive={false}
+                        />
+                      );
+                    })
+                  : (
                     <Line
-                      key={ns}
+                      key={namespaces[selectedIdx]}
                       type="monotone"
-                      dataKey={ns}
-                      stroke={death ? config.colors.death : config.colors.healthy}
+                      dataKey={namespaces[selectedIdx]}
+                      stroke={
+                        leasesData && hasDeath(leasesData[namespaces[selectedIdx]])
+                          ? config.colors.death
+                          : config.colors.hover[selectedIdx % config.colors.hover.length]
+                      }
                       dot={false}
                       strokeWidth={2}
                       isAnimationActive={false}
                     />
-                  );
-                })
-              : (
-                <Line
-                  key={namespaces[selectedIdx]}
-                  type="monotone"
-                  dataKey={namespaces[selectedIdx]}
-                  stroke={
-                    leasesData && hasDeath(leasesData[namespaces[selectedIdx]])
-                      ? config.colors.death
-                      : config.colors.hover[selectedIdx % config.colors.hover.length]
-                  }
-                  dot={false}
-                  strokeWidth={2}
-                  isAnimationActive={false}
-                />
-              )
-            }
-
-            {/* eBPF markers */}
-            {showEbpf && ebpfMarkers.map((marker, idx) => (
-              <ReferenceDot
-                key={idx}
-                x={marker.x}
-                y={marker.y}
-                r={7}
-                fill={config.colors.ebpf}
-                stroke="#fff"
-                shape={({ cx, cy }: { cx?: number; cy?: number }) =>
-                  typeof cx === 'number' && typeof cy === 'number' ? (
-                    <g
-                      className="recharts-reference-dot"
-                      style={{ cursor: 'pointer' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedEbpfEvent(marker.event);
-                      }}
-                      onMouseEnter={() => setHoveredEbpfIdx(idx)}
-                      onMouseLeave={() => setHoveredEbpfIdx(null)}
-                    >
-                      <EbpfMarkerShape
-                        payload={marker.event}
-                        cx={cx + marker.offset}
-                        cy={cy}
-                        hovered={hoveredEbpfIdx === idx}
-                      />
-                    </g>
-                  ) : <g />
+                  )
                 }
-              />
-            ))}
 
-            {/* Brush selection area for zoom */}
-            {brushStart !== null && brushEnd !== null && (
-              <ReferenceArea
-                x1={brushStart}
-                x2={brushEnd}
-                strokeOpacity={0.3}
-                fill="rgba(54, 162, 235, 0.3)"
-              />
-            )}
-          </LineChart>
-          </div>
+                {/* eBPF markers */}
+                {showEbpf && ebpfMarkers.map((marker, idx) => (
+                  <ReferenceDot
+                    key={idx}
+                    x={marker.x}
+                    y={marker.y}
+                    r={7}
+                    fill={config.colors.ebpf}
+                    stroke="#fff"
+                    shape={({ cx, cy }: { cx?: number; cy?: number }) =>
+                      typeof cx === 'number' && typeof cy === 'number' ? (
+                        <g
+                          className="recharts-reference-dot"
+                          style={{ cursor: 'pointer' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEbpfEvent(marker.event);
+                          }}
+                          onMouseEnter={() => setHoveredEbpfIdx(idx)}
+                          onMouseLeave={() => setHoveredEbpfIdx(null)}
+                        >
+                          <EbpfMarkerShape
+                            payload={marker.event}
+                            cx={cx + marker.offset}
+                            cy={cy}
+                            hovered={hoveredEbpfIdx === idx}
+                          />
+                        </g>
+                      ) : <g />
+                    }
+                  />
+                ))}
 
-          {renderLegend()}
+                {/* Brush selection area for zoom */}
+                {brushStart !== null && brushEnd !== null && (
+                  <ReferenceArea
+                    x1={brushStart}
+                    x2={brushEnd}
+                    strokeOpacity={0.3}
+                    fill="rgba(54, 162, 235, 0.3)"
+                  />
+                )}
+              </LineChart>
+              </div>
 
-          {/* eBPF Info Panel */}
-          {(selectedEbpfEvent || lastEbpfMarker) && (
-            <div
-              className="ebpf-info-panel"
-              style={{
-                background: '#222',
-                color: '#fff',
-                padding: '12px',
-                margin: '10px auto 2px',
-                borderRadius: '6px',
-                width: '100%',
-                maxWidth: `${chartWidth}px`,
-                fontSize: '1rem',
-                boxShadow: '0 2px 8px #0008',
-                boxSizing: 'border-box',
-              }}
-            >
-              <strong>eBPF Event Info</strong><br />
-              Namespace: {(selectedEbpfEvent || lastEbpfMarker!.event).namespace}<br />
-              Timestamp: {
-                (() => {
-                  const ts = (selectedEbpfEvent || lastEbpfMarker!.event).timestamp;
-                  const date = new Date(ts);
-                  return date.toLocaleString('en-US', {
-                    year: '2-digit',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false,
-                  });
-                })()
-              }<br />
-              Comm: {(selectedEbpfEvent || lastEbpfMarker!.event).comm} ¬
-              Syscall: {(selectedEbpfEvent || lastEbpfMarker!.event).syscall} ¬
-              PID: {(selectedEbpfEvent || lastEbpfMarker!.event).pid} ¬
-              {selectedEbpfEvent && (
-                <div style={{ marginTop: '8px', fontSize: '0.8em', color: '#aaa' }}>
-                  (Click anywhere outside a marker to clear selection)
+              {renderLegend()}
+
+              {/* eBPF Info Panel */}
+              {(selectedEbpfEvent || lastEbpfMarker) && (
+                <div
+                  className="ebpf-info-panel"
+                  style={{
+                    background: '#222',
+                    color: '#fff',
+                    padding: '12px',
+                    margin: '10px auto 2px',
+                    borderRadius: '6px',
+                    width: '100%',
+                    maxWidth: `${chartWidth}px`,
+                    fontSize: '1rem',
+                    boxShadow: '0 2px 8px #0008',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <strong>eBPF Event Info</strong><br />
+                  Namespace: {(selectedEbpfEvent || lastEbpfMarker!.event).namespace}<br />
+                  Timestamp: {
+                    (() => {
+                      const ts = (selectedEbpfEvent || lastEbpfMarker!.event).timestamp;
+                      const date = new Date(ts);
+                      return date.toLocaleString('en-US', {
+                        year: '2-digit',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false,
+                      });
+                    })()
+                  }<br />
+                  Comm: {(selectedEbpfEvent || lastEbpfMarker!.event).comm} ¬
+                  Syscall: {(selectedEbpfEvent || lastEbpfMarker!.event).syscall} ¬
+                  PID: {(selectedEbpfEvent || lastEbpfMarker!.event).pid} ¬
+                  {selectedEbpfEvent && (
+                    <div style={{ marginTop: '8px', fontSize: '0.8em', color: '#aaa' }}>
+                      (Click anywhere outside a marker to clear selection)
+                    </div>
+                  )}
                 </div>
               )}
+            </>
+          )}
+
+          {activeView === 'heatmap' && (
+            <HeatmapView leasesData={leasesData} width={chartWidth} />
+          )}
+
+          {activeView === 'timeline' && (
+            <TimelineView leasesData={leasesData} width={chartWidth} />
+          )}
+
+          {activeView === 'histogram' && (
+            <HistogramView leasesData={leasesData} />
+          )}
+
+          {activeView === 'table' && (
+            <NodeTable leasesData={leasesData} />
+          )}
+
+          {/* Persistent NodeTable panel below active chart view */}
+          {activeView !== 'table' && (
+            <div style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '12px' }}>
+              <NodeTable leasesData={leasesData} />
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { config } from '../config';
-import type { LeasePoint, LeasesByNamespace, Anomaly } from '../types/heartbeat';
+import type { LeasePoint, LeasesByNamespace, Anomaly, NodeAnomaly } from '../types/heartbeat';
 
 /**
  * Returns the segment color based on the gap between two consecutive lease points.
@@ -80,6 +80,52 @@ export function getAnomalies(leasesData: LeasesByNamespace | null): Anomaly[] {
     }
   });
   return anomalies;
+}
+
+/**
+ * Detects anomalies with per-node information.
+ * Returns NodeAnomaly[] which extends Anomaly with nodeName.
+ */
+export function getNodeAnomalies(leasesData: LeasesByNamespace | null): NodeAnomaly[] {
+  if (!leasesData) return [];
+  const anomalies: NodeAnomaly[] = [];
+  Object.entries(leasesData).forEach(([ns, arr]) => {
+    if (!arr || arr.length < 2) return;
+    for (let i = 1; i < arr.length; i++) {
+      const gap = arr[i].y - arr[i - 1].y;
+      if (gap > config.warningGapThreshold && gap < config.criticalGapThreshold) {
+        anomalies.push({
+          nodeName: ns,
+          namespace: ns,
+          index: i,
+          gap,
+          from: arr[i - 1].y,
+          to: arr[i].y,
+        });
+      }
+    }
+  });
+  return anomalies;
+}
+
+/**
+ * Unified status-to-color mapping used by all views.
+ * Green for ready, yellow for warning, red for critical.
+ */
+export function getStatusColor(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'ready':
+      return config.colors.healthy;
+    case 'warning':
+    case 'unknown':
+      return config.colors.warning;
+    case 'critical':
+    case 'notready':
+    case 'not_ready':
+      return config.colors.critical;
+    default:
+      return config.colors.healthy;
+  }
 }
 
 /**

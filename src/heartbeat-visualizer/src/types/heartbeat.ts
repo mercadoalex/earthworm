@@ -79,3 +79,46 @@ export interface WebSocketMessage {
   type: 'heartbeat' | 'alert' | 'status';
   payload: HeartbeatEvent | Alert | Record<string, unknown>;
 }
+
+// --- New types for multi-view visualizations ---
+
+export type ViewType = 'line' | 'heatmap' | 'timeline' | 'histogram' | 'table';
+
+export interface HeatmapCell {
+  nodeName: string;
+  namespace: string;
+  timeBucket: number;
+  timeBucketEnd: number;
+  status: 'ready' | 'warning' | 'critical';
+  heartbeatCount: number;
+}
+
+export interface SwimSegment {
+  nodeName: string;
+  namespace: string;
+  start: number;
+  end: number;
+  status: 'Ready' | 'NotReady' | 'Unknown';
+  cause?: string;
+  ebpfEvents?: EbpfEvent[];
+}
+
+export interface NodeSummary {
+  nodeName: string;
+  namespace: string;
+  currentStatus: string;
+  lastHeartbeat: number;
+  recentIntervals: number[];
+}
+
+export interface HistogramBin {
+  rangeStart: number;
+  rangeEnd: number;
+  count: number;
+  percentage: number;
+  severity: 'normal' | 'warning' | 'critical';
+}
+
+export interface NodeAnomaly extends Anomaly {
+  nodeName: string;
+}

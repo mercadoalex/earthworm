@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -101,6 +102,14 @@ func setCORS(next http.Handler, origins []string) http.Handler {
 }
 
 func main() {
+	// CLI flags for simulation mode
+	simMode := flag.Bool("sim-mode", false, "Enable simulation mode (use SimulationEngine instead of GenerateMockNodes)")
+	simDuration := flag.Duration("sim-duration", 4*time.Hour, "Simulation duration (e.g. 4h, 30m)")
+	simNodes := flag.Int("sim-nodes", 50, "Number of simulated nodes")
+	simOutput := flag.String("sim-output", "", "Output directory for simulation data files")
+	simSeed := flag.Int64("sim-seed", 0, "Random seed for simulation (0 = time-based)")
+	flag.Parse()
+
 	cfg = LoadConfig()
 
 	logFile, err := os.OpenFile(cfg.LogFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -147,16 +156,68 @@ func main() {
 
 	log.Printf("Earthworm server running on :%d", cfg.Port)
 
-	// Generate 50 mock nodes
-	nodes := kubernetes.GenerateMockNodes()
+	var nodes []kubernetes.MockNode
 
-	// Simulate eBPF activity and print correlation results
-	kubernetes.SimulateEBPFActivity(nodes, podInfos)
+	if *simMode {
+		// Use SimulationEngine for realistic data generation
+		simConfig := kubernetes.SimulationConfig{
+			NodeCount: *simNodes,
+			Duration:  *simDuration,
+			Seed:      *simSeed,
+			Scenarios: []kubernetes.ScenarioConfig{
+				{
+					Type:             "rolling_deployment",
+					TriggerAt:        30 * time.Minute,
+					NodeCount:        5,
+					StaggerInterval:  30 * time.Second,
+					ReplacementDelay: 15 * time.Second,
+				},
+			},
+		}
 
-	// Print summary of generated nodes
-	fmt.Println("\nSummary of mock nodes:")
-	for _, node := range nodes {
-		fmt.Printf("Node: %s, LastLease: %v, Status: %s\n", node.Name, node.LastLease.Format("15:04:05"), node.Status)
+		engine, err := kubernetes.NewSimulationEngine(simConfig)
+		if err != nil {
+			log.Fatalf("Failed to create simulation engine: %v", err)
+		}
+
+		fmt.Printf("Running simulation: %d nodes, %v duration, seed=%d\n", *simNodes, *simDuration, *simSeed)
+		result, err := engine.Run()
+		if err != nil {
+			log.Fatalf("Simulation failed: %v", err)
+		}
+
+		fmt.Printf("Simulation complete: %d leases, %d eBPF events, %d files\n",
+			result.Stats.TotalLeases, result.Stats.TotalEbpfEvents, len(result.LeaseFiles))
+
+		// Write output files if output directory specified
+		if *simOutput != "" {
+			if err := kubernetes.WriteSimulationOutput(result, *simOutput); err != nil {
+				log.Fatalf("Failed to write simulation output: %v", err)
+			}
+			fmt.Printf("Simulation output written to %s\n", *simOutput)
+		}
+
+		// Create mock nodes from simulation for live broadcast
+		nodes = make([]kubernetes.MockNode, 0, result.Stats.TotalNodes)
+		for i := 0; i < result.Stats.TotalNodes && i < *simNodes; i++ {
+			nodes = append(nodes, kubernetes.MockNode{
+				Name:      fmt.Sprintf("node-%03d", i),
+				Status:    "Ready",
+				LastLease: time.Now(),
+			})
+		}
+	} else {
+		// Generate 50 mock nodes (original behavior)
+		nodes = kubernetes.GenerateMockNodes()
+
+		// Simulate eBPF activity and print correlation results
+		kubernetes.SimulateEBPFActivity(nodes, podInfos)
+
+		// Print summary of generated nodes
+		fmt.Println("\nSummary of mock nodes:")
+		for _, node := range nodes {
+			fmt.Printf("Node: %s, LastLease: %v, Status: %s\n", node.Name, node.LastLease.Format("15:04:05"), node.Status)
+		}
 	}
 
 	// Start live heartbeat simulation — broadcasts a heartbeat from a random node every 3 seconds

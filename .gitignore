@@ -40,3 +40,12 @@ coverage/
 
 # Compiled server binary
 server
+
+# Kiro specs (local working files)
+.kiro/specs/
+
+# Test failure artifacts
+*.fail
+
+# Architecture diagrams (binary)
+architecture_diagram.png
