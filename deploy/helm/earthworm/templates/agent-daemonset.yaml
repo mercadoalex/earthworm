@@ -38,11 +38,34 @@ spec:
                 - CAP_BPF
                 - CAP_SYS_ADMIN
                 - CAP_PERFMON
+          args:
+            - "--ring-buffer-size"
+            - "$(EARTHWORM_RING_BUFFER_SIZE_KB)"
+            - "--server-url"
+            - "$(EARTHWORM_SERVER_URL)"
           env:
+            - name: EARTHWORM_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: EARTHWORM_RING_BUFFER_SIZE_KB
               value: "{{ .Values.ebpf.ringBufferSizeKB }}"
             - name: EARTHWORM_SERVER_URL
               value: "http://earthworm-server.{{ .Values.namespace }}.svc.cluster.local:8080"
+          volumeMounts:
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
           resources:
             {{- toYaml .Values.agent.resources | nindent 12 }}
+      volumes:
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: proc
+          hostPath:
+            path: /proc
 {{- end }}

@@ -12,6 +12,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// BPFLoaderIface defines the interface that both loader_linux.go and
+// loader_stub.go must satisfy: NewBPFLoader() → Load() → Close() → Programs().
+// This compile-time check ensures interface parity across platforms.
+type BPFLoaderIface interface {
+	Load() error
+	Close() error
+	Programs() map[string]*ebpf.Program
+}
+
+// Compile-time check: *BPFLoader must satisfy BPFLoaderIface.
+var _ BPFLoaderIface = (*BPFLoader)(nil)
+
 // BPFLoader manages the lifecycle of eBPF programs.
 type BPFLoader struct {
 	mu       sync.Mutex

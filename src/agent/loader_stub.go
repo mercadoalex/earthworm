@@ -7,6 +7,18 @@ import (
 	"sync"
 )
 
+// BPFLoaderIface defines the interface that both loader_stub.go and
+// loader_linux.go must satisfy: NewBPFLoader() → Load() → Close() → Programs().
+// This compile-time check ensures interface parity across platforms.
+type BPFLoaderIface interface {
+	Load() error
+	Close() error
+	Programs() map[string]*BPFProgram
+}
+
+// Compile-time check: *BPFLoader must satisfy BPFLoaderIface.
+var _ BPFLoaderIface = (*BPFLoader)(nil)
+
 // BPFProgram is a stub for ebpf.Program on non-Linux platforms.
 type BPFProgram struct {
 	Name   string

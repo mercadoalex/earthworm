@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"pgregory.net/rapid"
@@ -136,4 +138,51 @@ func TestUnknownCgroupHostLevelLabeling(t *testing.T) {
 			t.Errorf("ContainerName should be empty for unknown cgroup, got %q", enriched.ContainerName)
 		}
 	})
+}
+
+// TestKubeletAPIUnreachable verifies that when the kubelet API returns 503,
+// refresh() returns an error and the stale cache is retained.
+// Validates: Requirements 4.5
+func TestKubeletAPIUnreachable(t *testing.T) {
+	// Set up a test server that always returns 503
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	resolver := NewCgroupResolver("test-node", srv.URL, 0)
+
+	// Pre-populate the cache with stale data
+	stalePod := PodIdentity{
+		PodName:       "stale-pod",
+		Namespace:     "stale-ns",
+		ContainerName: "stale-container",
+		NodeName:      "test-node",
+	}
+	resolver.UpdateCache(42, stalePod)
+
+	// refresh should return an error because kubelet returned 503
+	err := resolver.refresh()
+	if err == nil {
+		t.Fatal("expected error from refresh() when kubelet returns 503, got nil")
+	}
+
+	// Verify the stale cache is retained
+	if resolver.CacheSize() != 1 {
+		t.Fatalf("expected stale cache to have 1 entry, got %d", resolver.CacheSize())
+	}
+
+	pod, hostLevel := resolver.Resolve(42, "kubelet")
+	if hostLevel {
+		t.Error("expected hostLevel=false for stale cached entry")
+	}
+	if pod.PodName != "stale-pod" {
+		t.Errorf("expected stale pod name 'stale-pod', got %q", pod.PodName)
+	}
+	if pod.Namespace != "stale-ns" {
+		t.Errorf("expected stale namespace 'stale-ns', got %q", pod.Namespace)
+	}
+	if pod.ContainerName != "stale-container" {
+		t.Errorf("expected stale container name 'stale-container', got %q", pod.ContainerName)
+	}
 }

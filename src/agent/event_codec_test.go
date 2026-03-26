@@ -160,3 +160,134 @@ func TestKernelEventBinaryRoundTrip(t *testing.T) {
 		}
 	})
 }
+
+// TestKernelEventBinaryRoundTripWithPadding tests Property 1: KernelEvent binary round-trip.
+// **Validates: Requirements 5.5, 10.1, 10.2, 10.4**
+// Feature: ebpf-agent-real-kernel, Property 1: KernelEvent binary round-trip —
+// for any valid KernelEvent, encode then decode produces equivalent struct,
+// the encoded buffer is exactly 120 bytes, and all padding offsets are zeroed.
+func TestKernelEventBinaryRoundTripWithPadding(t *testing.T) {
+	// Padding regions in the 120-byte KernelEvent binary layout.
+	type paddingRegion struct {
+		offset int
+		length int
+	}
+	paddings := []paddingRegion{
+		{offset: 20, length: 4},  // after tgid, before cgroup_id
+		{offset: 49, length: 3},  // after event_type, before syscall_nr
+		{offset: 81, length: 3},  // after slow_syscall, before child_pid
+		{offset: 93, length: 3},  // after critical_exit, before saddr
+		{offset: 109, length: 3}, // after net_event_type, before rtt_us
+		{offset: 116, length: 4}, // trailing padding after rtt_us
+	}
+
+	rapid.Check(t, func(t *rapid.T) {
+		original := genKernelEvent(t)
+
+		// Encode
+		data, err := original.MarshalBinary()
+		if err != nil {
+			t.Fatalf("MarshalBinary failed: %v", err)
+		}
+
+		// Assert exactly 120 bytes
+		if len(data) != 120 {
+			t.Fatalf("encoded size %d != 120", len(data))
+		}
+		if len(data) != KernelEventSize {
+			t.Fatalf("encoded size %d != KernelEventSize (%d)", len(data), KernelEventSize)
+		}
+
+		// Assert all padding bytes are zero
+		for _, pad := range paddings {
+			for i := 0; i < pad.length; i++ {
+				if data[pad.offset+i] != 0 {
+					t.Errorf("padding byte at offset %d+%d is 0x%02x, want 0x00",
+						pad.offset, i, data[pad.offset+i])
+				}
+			}
+		}
+
+		// Decode and verify round-trip
+		var decoded KernelEvent
+		if err := decoded.UnmarshalBinary(data); err != nil {
+			t.Fatalf("UnmarshalBinary failed: %v", err)
+		}
+
+		if original.Timestamp != decoded.Timestamp {
+			t.Errorf("Timestamp mismatch: %d != %d", original.Timestamp, decoded.Timestamp)
+		}
+		if original.PID != decoded.PID {
+			t.Errorf("PID mismatch: %d != %d", original.PID, decoded.PID)
+		}
+		if original.PPID != decoded.PPID {
+			t.Errorf("PPID mismatch: %d != %d", original.PPID, decoded.PPID)
+		}
+		if original.TGID != decoded.TGID {
+			t.Errorf("TGID mismatch: %d != %d", original.TGID, decoded.TGID)
+		}
+		if original.CgroupID != decoded.CgroupID {
+			t.Errorf("CgroupID mismatch: %d != %d", original.CgroupID, decoded.CgroupID)
+		}
+		if original.Comm != decoded.Comm {
+			t.Errorf("Comm mismatch: %v != %v", original.Comm, decoded.Comm)
+		}
+		if original.EventType != decoded.EventType {
+			t.Errorf("EventType mismatch: %d != %d", original.EventType, decoded.EventType)
+		}
+		if original.SyscallNr != decoded.SyscallNr {
+			t.Errorf("SyscallNr mismatch: %d != %d", original.SyscallNr, decoded.SyscallNr)
+		}
+		if original.RetVal != decoded.RetVal {
+			t.Errorf("RetVal mismatch: %d != %d", original.RetVal, decoded.RetVal)
+		}
+		if original.EntryTs != decoded.EntryTs {
+			t.Errorf("EntryTs mismatch: %d != %d", original.EntryTs, decoded.EntryTs)
+		}
+		if original.ExitTs != decoded.ExitTs {
+			t.Errorf("ExitTs mismatch: %d != %d", original.ExitTs, decoded.ExitTs)
+		}
+		if original.SlowSyscall != decoded.SlowSyscall {
+			t.Errorf("SlowSyscall mismatch: %d != %d", original.SlowSyscall, decoded.SlowSyscall)
+		}
+		if original.ChildPID != decoded.ChildPID {
+			t.Errorf("ChildPID mismatch: %d != %d", original.ChildPID, decoded.ChildPID)
+		}
+		if original.ExitCode != decoded.ExitCode {
+			t.Errorf("ExitCode mismatch: %d != %d", original.ExitCode, decoded.ExitCode)
+		}
+		if original.CriticalExit != decoded.CriticalExit {
+			t.Errorf("CriticalExit mismatch: %d != %d", original.CriticalExit, decoded.CriticalExit)
+		}
+		if original.SAddr != decoded.SAddr {
+			t.Errorf("SAddr mismatch: %d != %d", original.SAddr, decoded.SAddr)
+		}
+		if original.DAddr != decoded.DAddr {
+			t.Errorf("DAddr mismatch: %d != %d", original.DAddr, decoded.DAddr)
+		}
+		if original.SPort != decoded.SPort {
+			t.Errorf("SPort mismatch: %d != %d", original.SPort, decoded.SPort)
+		}
+		if original.DPort != decoded.DPort {
+			t.Errorf("DPort mismatch: %d != %d", original.DPort, decoded.DPort)
+		}
+		if original.NetEventType != decoded.NetEventType {
+			t.Errorf("NetEventType mismatch: %d != %d", original.NetEventType, decoded.NetEventType)
+		}
+		if original.RTTUs != decoded.RTTUs {
+			t.Errorf("RTTUs mismatch: %d != %d", original.RTTUs, decoded.RTTUs)
+		}
+
+		// Bidirectional: re-encode and compare bytes
+		reEncoded, err := decoded.MarshalBinary()
+		if err != nil {
+			t.Fatalf("re-MarshalBinary failed: %v", err)
+		}
+		for i := range data {
+			if data[i] != reEncoded[i] {
+				t.Errorf("re-encoded byte %d differs: 0x%02x != 0x%02x", i, data[i], reEncoded[i])
+				break
+			}
+		}
+	})
+}

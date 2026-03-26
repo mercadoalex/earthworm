@@ -296,3 +296,167 @@ func TestProperty16_HelmTemplateConfigPropagation(t *testing.T) {
 		}
 	})
 }
+
+// Feature: ebpf-agent-real-kernel, Task 6.3: Helm template tests for volume mounts, node name env, nodeSelector, tolerations
+// Validates: Requirements 8.1, 8.2, 8.4, 8.5, 8.6
+
+func TestHelmDaemonSetVolumeMounts(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.5: Must mount /sys/fs/cgroup and /proc as read-only hostPath volumes
+	if !strings.Contains(content, "mountPath: /sys/fs/cgroup") {
+		t.Error("agent-daemonset.yaml must mount /sys/fs/cgroup")
+	}
+	if !strings.Contains(content, "hostPath:") {
+		t.Error("agent-daemonset.yaml must use hostPath volumes")
+	}
+	if !strings.Contains(content, "path: /sys/fs/cgroup") {
+		t.Error("agent-daemonset.yaml must have hostPath for /sys/fs/cgroup")
+	}
+	if !strings.Contains(content, "path: /proc") {
+		t.Error("agent-daemonset.yaml must have hostPath for /proc")
+	}
+
+	// Both volume mounts must be readOnly
+	lines := strings.Split(content, "\n")
+	cgroupFound := false
+	procFound := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "mountPath: /sys/fs/cgroup" {
+			// Check readOnly in nearby lines
+			for j := i + 1; j < len(lines) && j <= i+2; j++ {
+				if strings.Contains(lines[j], "readOnly: true") {
+					cgroupFound = true
+					break
+				}
+			}
+		}
+		if strings.Contains(trimmed, "mountPath: /host/proc") || trimmed == "mountPath: /proc" {
+			for j := i + 1; j < len(lines) && j <= i+2; j++ {
+				if strings.Contains(lines[j], "readOnly: true") {
+					procFound = true
+					break
+				}
+			}
+		}
+	}
+	if !cgroupFound {
+		t.Error("/sys/fs/cgroup volume mount must be readOnly: true")
+	}
+	if !procFound {
+		t.Error("/proc volume mount must be readOnly: true")
+	}
+}
+
+func TestHelmDaemonSetNodeNameEnv(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.3: EARTHWORM_NODE_NAME from fieldRef: spec.nodeName
+	if !strings.Contains(content, "EARTHWORM_NODE_NAME") {
+		t.Error("agent-daemonset.yaml must define EARTHWORM_NODE_NAME env var")
+	}
+	if !strings.Contains(content, "fieldRef") {
+		t.Error("agent-daemonset.yaml must use fieldRef for node name")
+	}
+	if !strings.Contains(content, "spec.nodeName") {
+		t.Error("agent-daemonset.yaml must reference spec.nodeName")
+	}
+}
+
+func TestHelmDaemonSetContainerArgs(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.3: ring buffer size and server URL wired as args
+	if !strings.Contains(content, "--ring-buffer-size") {
+		t.Error("agent-daemonset.yaml must pass --ring-buffer-size arg")
+	}
+	if !strings.Contains(content, "--server-url") {
+		t.Error("agent-daemonset.yaml must pass --server-url arg")
+	}
+}
+
+func TestHelmDaemonSetNodeSelectorAndTolerations(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.4: nodeSelector and tolerations configurable via Helm values
+	if !strings.Contains(content, ".Values.agent.nodeSelector") {
+		t.Error("agent-daemonset.yaml must reference .Values.agent.nodeSelector")
+	}
+	if !strings.Contains(content, ".Values.agent.tolerations") {
+		t.Error("agent-daemonset.yaml must reference .Values.agent.tolerations")
+	}
+}
+
+func TestHelmDaemonSetEnabledRendersFullSpec(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.1: when ebpf.enabled=true, renders DaemonSet with
+	// hostPID, capabilities, volumes, env, and args
+	checks := map[string]string{
+		"conditional guard":   "if .Values.ebpf.enabled",
+		"DaemonSet kind":      "kind: DaemonSet",
+		"hostPID":             "hostPID: true",
+		"CAP_BPF":             "CAP_BPF",
+		"CAP_SYS_ADMIN":       "CAP_SYS_ADMIN",
+		"CAP_PERFMON":          "CAP_PERFMON",
+		"cgroup volume mount": "mountPath: /sys/fs/cgroup",
+		"proc hostPath":       "path: /proc",
+		"node name env":       "EARTHWORM_NODE_NAME",
+		"ring buffer arg":     "--ring-buffer-size",
+		"server url arg":      "--server-url",
+	}
+	for desc, pattern := range checks {
+		if !strings.Contains(content, pattern) {
+			t.Errorf("when ebpf.enabled=true, DaemonSet must contain %s (%q)", desc, pattern)
+		}
+	}
+}
+
+func TestHelmDaemonSetDisabledDoesNotRender(t *testing.T) {
+	content, err := readTemplate("agent-daemonset.yaml")
+	if err != nil {
+		t.Fatalf("failed to read agent-daemonset.yaml: %v", err)
+	}
+
+	// Requirement 8.2: when ebpf.enabled=false, the template must not render
+	// The template is wrapped in {{- if .Values.ebpf.enabled }} ... {{- end }}
+	// Verify the conditional guard exists at the start and end wraps the entire content
+	trimmed := strings.TrimSpace(content)
+	if !strings.HasPrefix(trimmed, "{{- if .Values.ebpf.enabled }}") {
+		t.Error("agent-daemonset.yaml must start with {{- if .Values.ebpf.enabled }}")
+	}
+	if !strings.HasSuffix(trimmed, "{{- end }}") {
+		t.Error("agent-daemonset.yaml must end with {{- end }}")
+	}
+}
+
+func TestHelmRBACResourcesForAgent(t *testing.T) {
+	content, err := readTemplate("rbac.yaml")
+	if err != nil {
+		t.Fatalf("failed to read rbac.yaml: %v", err)
+	}
+
+	// Requirement 8.6: RBAC grants agent permission to read pod metadata
+	if !strings.Contains(content, "ServiceAccount") {
+		t.Error("rbac.yaml must define a ServiceAccount for the agent")
+	}
+	if !strings.Contains(content, "pods") {
+		t.Error("rbac.yaml must grant access to pods")
+	}
+}
