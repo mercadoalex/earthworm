@@ -168,4 +168,4 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
   );
 };
 
-export default LiveActivityPanel;
+export default React.memo(LiveActivityPanel);

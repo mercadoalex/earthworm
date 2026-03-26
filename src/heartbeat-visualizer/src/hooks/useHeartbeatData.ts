@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { config } from '../config';
 import { transformLeasesForChart } from '../services/dataService';
 import type { LeasesByNamespace, ChartDataPoint } from '../types/heartbeat';
@@ -97,11 +97,15 @@ export function useHeartbeatData(
     }
   }, [step, currentFileIdx, manifest.length]);
 
-  // Prepare chart data
-  const namespaces = leasesData ? Object.keys(leasesData) : [];
-  const chartData = leasesData
-    ? transformLeasesForChart(leasesData, currentHeartbeat + 1)
-    : [];
+  // Prepare chart data (memoized to avoid recomputation on unrelated re-renders)
+  const namespaces = useMemo(
+    () => (leasesData ? Object.keys(leasesData) : []),
+    [leasesData],
+  );
+  const chartData = useMemo(
+    () => (leasesData ? transformLeasesForChart(leasesData, currentHeartbeat + 1) : []),
+    [leasesData, currentHeartbeat],
+  );
 
   const restart = useCallback(() => {
     setCurrentFileIdx(0);

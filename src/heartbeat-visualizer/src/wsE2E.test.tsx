@@ -40,7 +40,7 @@ jest.mock('./hooks/useEbpfData', () => ({
     toggleEbpf: jest.fn(),
     clearEbpfData: jest.fn(),
     restoreEbpfData: jest.fn(),
-    getEbpfMarkers: () => [],
+    ebpfMarkers: [],
   }),
 }));
 
@@ -90,7 +90,17 @@ afterEach(() => {
 });
 
 describe('E2E: Visualizer renders data point from mocked WS stream', () => {
-  it('renders a heartbeat event received via WebSocket in the Live Activity Feed', () => {
+  it('renders a heartbeat event received via WebSocket in the Live Activity Feed', async () => {
+    // Mock requestAnimationFrame to flush synchronously for testing
+    const originalRAF = global.requestAnimationFrame;
+    const originalCAF = global.cancelAnimationFrame;
+    let rafCallback: FrameRequestCallback | null = null;
+    global.requestAnimationFrame = (cb: FrameRequestCallback) => {
+      rafCallback = cb;
+      return 1;
+    };
+    global.cancelAnimationFrame = jest.fn();
+
     render(
       <ViewProvider>
         <HeartbeatChart />
@@ -115,8 +125,17 @@ describe('E2E: Visualizer renders data point from mocked WS stream', () => {
       setWsLastMessage(heartbeatMsg);
     });
 
+    // Flush the RAF buffer so the batched message is processed
+    act(() => {
+      if (rafCallback) rafCallback(performance.now());
+    });
+
     // The LiveActivityPanel should now render the heartbeat event
     expect(screen.getByText(/ws-node-42/)).toBeInTheDocument();
     expect(screen.getByText(/production/)).toBeInTheDocument();
+
+    // Restore
+    global.requestAnimationFrame = originalRAF;
+    global.cancelAnimationFrame = originalCAF;
   });
 });

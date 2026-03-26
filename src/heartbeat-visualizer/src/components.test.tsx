@@ -36,7 +36,7 @@ jest.mock('./hooks/useEbpfData', () => ({
     toggleEbpf: jest.fn(),
     clearEbpfData: jest.fn(),
     restoreEbpfData: jest.fn(),
-    getEbpfMarkers: () => [],
+    ebpfMarkers: [],
   }),
 }));
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { config } from '../config';
 import type { EbpfEvent, EbpfMarker, ChartDataPoint } from '../types/heartbeat';
 
@@ -8,7 +8,7 @@ export interface UseEbpfDataReturn {
   toggleEbpf: () => void;
   clearEbpfData: () => void;
   restoreEbpfData: () => void;
-  getEbpfMarkers: (chartData: ChartDataPoint[], namespaces: string[]) => EbpfMarker[];
+  ebpfMarkers: EbpfMarker[];
 }
 
 export function useEbpfData(
@@ -16,6 +16,8 @@ export function useEbpfData(
   step: string,
   ebpfManifestUrlOverride?: string,
   datasetPathOverride?: string,
+  chartData?: ChartDataPoint[],
+  namespaces?: string[],
 ): UseEbpfDataReturn {
   const ebpfManifestUrl = ebpfManifestUrlOverride ?? config.ebpfManifestUrl;
   const datasetPath = datasetPathOverride ?? config.datasetPath;
@@ -63,32 +65,29 @@ export function useEbpfData(
     setEbpfData(cachedEbpfData);
   }, [cachedEbpfData]);
 
-  const getEbpfMarkers = useCallback(
-    (chartData: ChartDataPoint[], namespaces: string[]): EbpfMarker[] => {
-      if (!showEbpf || !ebpfData || ebpfData.length === 0) return [];
-      const markers: EbpfMarker[] = [];
-      chartData.forEach((point) => {
-        namespaces.forEach((ns) => {
-          const matchingEvents = ebpfData.filter(
-            (event) =>
-              event.namespace === ns &&
-              Math.abs(event.timestamp - (point.timestamp || 0)) < 60000
-          );
-          matchingEvents.forEach((event, i) => {
-            markers.push({
-              x: point.timestamp || 0,
-              y: (point[ns] as number) || 0,
-              namespace: ns,
-              event,
-              offset: (i - Math.floor(matchingEvents.length / 2)) * 12,
-            });
+  const ebpfMarkers = useMemo((): EbpfMarker[] => {
+    if (!showEbpf || !ebpfData || ebpfData.length === 0 || !chartData || !namespaces) return [];
+    const markers: EbpfMarker[] = [];
+    chartData.forEach((point) => {
+      namespaces.forEach((ns) => {
+        const matchingEvents = ebpfData.filter(
+          (event) =>
+            event.namespace === ns &&
+            Math.abs(event.timestamp - (point.timestamp || 0)) < 60000
+        );
+        matchingEvents.forEach((event, i) => {
+          markers.push({
+            x: point.timestamp || 0,
+            y: (point[ns] as number) || 0,
+            namespace: ns,
+            event,
+            offset: (i - Math.floor(matchingEvents.length / 2)) * 12,
           });
         });
       });
-      return markers;
-    },
-    [showEbpf, ebpfData]
-  );
+    });
+    return markers;
+  }, [showEbpf, ebpfData, chartData, namespaces]);
 
   return {
     ebpfData,
@@ -96,6 +95,6 @@ export function useEbpfData(
     toggleEbpf,
     clearEbpfData,
     restoreEbpfData,
-    getEbpfMarkers,
+    ebpfMarkers,
   };
 }

@@ -7,10 +7,10 @@ import { hasDeath, hasWarning } from './utils/chartUtils';
 import { useHeartbeatData } from './hooks/useHeartbeatData';
 import { useEbpfData } from './hooks/useEbpfData';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useLiveEvents } from './hooks/useLiveEvents';
 import { useViewContext } from './contexts/ViewContext';
-import type { EbpfEvent, EbpfMarker, Alert, HeartbeatEvent } from './types/heartbeat';
+import type { EbpfEvent, Alert } from './types/heartbeat';
 import LiveActivityPanel from './LiveActivityPanel';
-import type { LiveEvent } from './LiveActivityPanel';
 import ViewSelector from './ViewSelector';
 import AnomalyBadge from './components/AnomalyBadge';
 import HeatmapView from './views/HeatmapView';
@@ -206,10 +206,13 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     toggleEbpf,
     clearEbpfData,
     restoreEbpfData,
-    getEbpfMarkers,
-  } = useEbpfData(currentFileIdx, step, cluster?.ebpfManifestUrl, cluster?.datasetPath);
+    ebpfMarkers,
+  } = useEbpfData(currentFileIdx, step, cluster?.ebpfManifestUrl, cluster?.datasetPath, chartData, namespaces);
 
   const { status: wsStatus, lastMessage } = useWebSocket(cluster?.wsEndpoint);
+
+  // --- Live events and alerts (isolated from chart rendering via useLiveEvents) ---
+  const { liveEvents, alerts, dismissAlert } = useLiveEvents(lastMessage);
 
   // --- ViewContext for shared zoom/pan state ---
   const { activeView, xDomain, setXDomain } = useViewContext();
@@ -221,8 +224,6 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [selectedEbpfEvent, setSelectedEbpfEvent] = useState<EbpfEvent | null>(null);
   const [hoveredEbpfIdx, setHoveredEbpfIdx] = useState<number | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
 
   // --- Zoom/Pan state (brush is local, xDomain comes from ViewContext) ---
   const [brushStart, setBrushStart] = useState<number | null>(null);
@@ -323,20 +324,6 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     return () => observer.disconnect();
   }, []);
 
-  // --- Handle incoming WebSocket messages ---
-  useEffect(() => {
-    if (!lastMessage) return;
-    const now = Date.now();
-    if (lastMessage.type === 'alert') {
-      const alert = lastMessage.payload as Alert;
-      setAlerts((prev) => [...prev, alert]);
-      setLiveEvents((prev) => [...prev.slice(-199), { kind: 'alert', data: alert, receivedAt: now }]);
-    } else if (lastMessage.type === 'heartbeat') {
-      const hb = lastMessage.payload as HeartbeatEvent;
-      setLiveEvents((prev) => [...prev.slice(-199), { kind: 'heartbeat', data: hb, receivedAt: now }]);
-    }
-  }, [lastMessage]);
-
   // --- Clear selected eBPF event on outside click ---
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -360,8 +347,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     }
   }, [currentHeartbeat, step, noise]);
 
-  // --- eBPF markers ---
-  const ebpfMarkers: EbpfMarker[] = getEbpfMarkers(chartData, namespaces);
+  // --- eBPF markers (pre-computed by useEbpfData) ---
   const lastEbpfMarker = ebpfMarkers.length > 0 ? ebpfMarkers[ebpfMarkers.length - 1] : null;
 
   // --- Legend renderer ---
@@ -425,7 +411,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
         <Toast
           key={idx}
           alert={alert}
-          onDismiss={() => setAlerts((prev) => prev.filter((_, i) => i !== idx))}
+          onDismiss={() => dismissAlert(idx)}
         />
       ))}
 
