@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,15 @@ import (
 	"syscall"
 	"time"
 )
+
+// trimNullString returns a Go string from a null-terminated byte slice.
+func trimNullString(b []byte) string {
+	n := bytes.IndexByte(b, 0)
+	if n < 0 {
+		n = len(b)
+	}
+	return string(b[:n])
+}
 
 // CgroupResolver maps cgroup IDs to Kubernetes pod identities.
 type CgroupResolver struct {
@@ -64,6 +74,102 @@ func (cr *CgroupResolver) Resolve(cgroupID uint64, comm string) (PodIdentity, bo
 func (cr *CgroupResolver) Enrich(evt *KernelEvent) EnrichedEvent {
 	pod, hostLevel := cr.Resolve(evt.CgroupID, evt.CommString())
 	return evt.Enrich(pod, hostLevel)
+}
+
+// EnrichExtended converts an ExtendedEvent to an EnrichedEvent using the
+// cgroup cache. It decodes the probe-specific payload and maps fields to
+// the corresponding EnrichedEvent fields.
+func (cr *CgroupResolver) EnrichExtended(ext *ExtendedEvent) (EnrichedEvent, error) {
+	pod, hostLevel := cr.Resolve(ext.CgroupID, ext.CommString())
+
+	enriched := EnrichedEvent{
+		Timestamp: time.Unix(0, int64(ext.Timestamp)),
+		PID:       ext.PID,
+		PPID:      ext.PPID,
+		TGID:      ext.TGID,
+		Comm:      ext.CommString(),
+		CgroupID:  ext.CgroupID,
+		EventType: ext.EventTypeString(),
+		NodeName:  pod.NodeName,
+		HostLevel: hostLevel,
+	}
+
+	if !hostLevel {
+		enriched.PodName = pod.PodName
+		enriched.Namespace = pod.Namespace
+		enriched.ContainerName = pod.ContainerName
+	}
+
+	switch ext.EventType {
+	case EventTypeVFS:
+		var p VFSPayload
+		if err := p.UnmarshalBinary(ext.Payload); err != nil {
+			return enriched, fmt.Errorf("decode VFS payload: %w", err)
+		}
+		enriched.FilePath = trimNullString(p.FilePath[:])
+		enriched.IOLatencyNs = p.LatencyNs
+		enriched.BytesXfer = p.BytesXfer
+		enriched.SlowIO = p.SlowIO == 1
+		if p.OpType == 0 {
+			enriched.IOOpType = "read"
+		} else {
+			enriched.IOOpType = "write"
+		}
+
+	case EventTypeOOM:
+		var p OOMPayload
+		if err := p.UnmarshalBinary(ext.Payload); err != nil {
+			return enriched, fmt.Errorf("decode OOM payload: %w", err)
+		}
+		if p.SubType == 0 {
+			enriched.OOMSubType = "oom_kill"
+		} else {
+			enriched.OOMSubType = "alloc_failure"
+		}
+		enriched.KilledPID = p.KilledPID
+		enriched.KilledComm = trimNullString(p.KilledComm[:])
+		enriched.OOMScoreAdj = p.OOMScoreAdj
+		enriched.PageOrder = p.PageOrder
+		enriched.GFPFlags = p.GFPFlags
+
+	case EventTypeDNS:
+		var p DNSPayload
+		if err := p.UnmarshalBinary(ext.Payload); err != nil {
+			return enriched, fmt.Errorf("decode DNS payload: %w", err)
+		}
+		enriched.Domain = trimNullString(p.Domain[:])
+		enriched.DNSLatencyNs = p.LatencyNs
+		enriched.ResponseCode = p.ResponseCode
+		enriched.TimedOut = p.TimedOut == 1
+
+	case EventTypeCgroup:
+		var p CgroupResourcePayload
+		if err := p.UnmarshalBinary(ext.Payload); err != nil {
+			return enriched, fmt.Errorf("decode cgroup resource payload: %w", err)
+		}
+		enriched.CPUUsageNs = p.CPUUsageNs
+		enriched.MemoryUsageBytes = p.MemoryUsageBytes
+		enriched.MemoryLimitBytes = p.MemoryLimitBytes
+		enriched.MemoryPressure = p.MemoryPressure == 1
+
+	case EventTypeSecurity:
+		var p NetworkAuditPayload
+		if err := p.UnmarshalBinary(ext.Payload); err != nil {
+			return enriched, fmt.Errorf("decode network audit payload: %w", err)
+		}
+		enriched.AuditDstAddr = IPv4String(p.DstAddr)
+		enriched.AuditDstPort = p.DstPort
+		switch p.Protocol {
+		case 6:
+			enriched.AuditProtocol = "tcp"
+		case 17:
+			enriched.AuditProtocol = "udp"
+		default:
+			enriched.AuditProtocol = fmt.Sprintf("proto(%d)", p.Protocol)
+		}
+	}
+
+	return enriched, nil
 }
 
 // UpdateCache directly sets a cgroup-to-pod mapping. Useful for testing.

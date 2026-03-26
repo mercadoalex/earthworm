@@ -54,13 +54,49 @@ func (pm *ProbeManager) Start(ctx context.Context) error {
 
 // ProcessRawEvent decodes a raw binary event, enriches it, and forwards it.
 // This is the core event processing pipeline used by both real and test code.
+// Dispatch is based on the event_type byte at offset 48:
+//   - event_type 0–2 → KernelEvent codec (120 bytes)
+//   - event_type 3–7 → ExtendedEvent codec (variable length)
 func (pm *ProbeManager) ProcessRawEvent(data []byte) error {
+	if len(data) < 49 {
+		return fmt.Errorf("record too short: %d bytes", len(data))
+	}
+	eventType := data[48]
+	if eventType <= 2 {
+		return pm.processKernelEvent(data)
+	}
+	return pm.processExtendedEvent(data)
+}
+
+// processKernelEvent decodes a legacy 120-byte KernelEvent and forwards it.
+func (pm *ProbeManager) processKernelEvent(data []byte) error {
 	evt, err := DecodeKernelEvent(data)
 	if err != nil {
 		return fmt.Errorf("decode event: %w", err)
 	}
-
 	return pm.ProcessEvent(evt)
+}
+
+// processExtendedEvent decodes an ExtendedEvent, decodes its payload by
+// event_type, enriches via CgroupResolver, and forwards to eventCh.
+func (pm *ProbeManager) processExtendedEvent(data []byte) error {
+	var ext ExtendedEvent
+	if err := ext.UnmarshalBinary(data); err != nil {
+		return fmt.Errorf("decode extended event: %w", err)
+	}
+
+	enriched, err := pm.resolver.EnrichExtended(&ext)
+	if err != nil {
+		return fmt.Errorf("enrich extended event: %w", err)
+	}
+
+	select {
+	case pm.eventCh <- enriched:
+	default:
+		pm.recordDrop()
+	}
+
+	return nil
 }
 
 // ProcessEvent enriches a decoded KernelEvent and forwards it to the event channel.
