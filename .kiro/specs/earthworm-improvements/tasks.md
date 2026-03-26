@@ -102,7 +102,7 @@ This plan covers four areas: refactoring (TypeScript migration, config extractio
     - Confirm alert includes nodeName, namespace, gap, severity
     - _Requirements: 7.1, 7.2, 7.3, 7.5_
 
-  - [ ]* 6.2 Write property test for anomaly detection severity
+  - [x]* 6.2 Write property test for anomaly detection severity
     - **Property 8: Anomaly detection emits correct severity alerts**
     - **Validates: Requirements 7.2, 7.3, 7.5**
 
@@ -176,15 +176,15 @@ This plan covers four areas: refactoring (TypeScript migration, config extractio
     - Confirm `src/heartbeat-visualizer/src/chartUtils.property.test.ts` or equivalent covers gaps below, within, and above thresholds
     - _Requirements: 12.1, 12.2_
 
-  - [ ]* 11.2 Write property test for gap classification (hasWarning and hasDeath)
+  - [x]* 11.2 Write property test for gap classification (hasWarning and hasDeath)
     - **Property 16: Gap classification (hasWarning and hasDeath)**
     - **Validates: Requirements 12.1, 12.2**
 
-  - [ ]* 11.3 Write property test for anomaly detection utility (getAnomalies)
+  - [x]* 11.3 Write property test for anomaly detection utility (getAnomalies)
     - **Property 17: Anomaly detection utility (getAnomalies)**
     - **Validates: Requirements 12.3**
 
-  - [ ]* 11.4 Write property test for segment color mapping
+  - [x]* 11.4 Write property test for segment color mapping
     - **Property 18: Segment color mapping**
     - **Validates: Requirements 12.4**
 

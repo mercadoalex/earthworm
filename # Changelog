@@ -3,9 +3,47 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Initial heartbeat monitoring implementation.
-- In-memory storage for heartbeat events.
-- REST API endpoints for posting and retrieving heartbeats.
+
+### Changed
+- Migrated Visualizer from JavaScript to TypeScript with strict mode (zero type errors).
+- Removed legacy JS/JSX files (heartbeat.js, ChartControls.jsx, Footer.js, HeartbeatChart.jsx, checkDates.js, App.test.js).
+- Converted index.js, reportWebVitals.js, setupTests.js, getClusterName.js to TypeScript.
+- Centralized all configuration constants into `config.ts` (Visualizer) and environment variables (Go server).
+- Separated data fetching from presentation via custom hooks and data service module.
+- Structured all Go server error responses as JSON with proper HTTP status codes (400, 405, 500, 503).
+
+### Added
+- WebSocket real-time streaming (`/ws/heartbeats`) with heartbeat and alert broadcast.
+- Exponential backoff reconnection in the Visualizer WebSocket hook (1s initial, 30s cap).
+- Connection status indicator ("Disconnected" / "Connecting...") in the Visualizer.
+- Pluggable storage interface with in-memory (default) and Redis implementations.
+- Store connectivity check on server startup.
+- Anomaly detection with configurable warning/critical gap thresholds.
+- Alert dispatcher with webhook delivery and WebSocket broadcast.
+- Toast notifications for alerts in the Visualizer (auto-dismiss after 10s).
+- Zoom via click-and-drag brush selection on the chart X axis.
+- Pan via Shift+drag interaction on the chart.
+- "Reset Zoom" button to restore full time range.
+- Multi-cluster support via ClusterSelector tabs with independent data fetching.
+- Responsive chart width (280px–1920px) via ResizeObserver.
+- Multiple visualization views: heatmap, timeline, histogram, node table.
+- Anomaly badge component with zoom-to-anomaly support.
+- Live activity panel showing real-time heartbeat and alert events.
+- Semantic HTML (header, main, footer) with ARIA labels and keyboard navigation.
+- Visible focus indicators (`:focus-visible`) for all interactive elements.
+- Logging middleware capturing method, path, status code, and duration.
+- Go server unit tests for POST/GET heartbeat handlers.
+- Go server property tests (config round-trip, error responses, anomaly detection, WebSocket broadcast, POST-then-GET round-trip).
+- Kubernetes client unit tests (CorrelateEBPFEvent, GenerateMockNodes, GenerateMockEBPFEvents).
+- Visualizer unit tests for chartUtils (hasWarning, hasDeath) and component rendering (HeartbeatChart, ChartControls, App, Footer).
+- Visualizer property tests (gap classification, anomaly detection, segment color mapping).
+- Lease parser unit tests (valid parsing, malformed YAML, missing fields, round-trip).
+- WebSocket E2E test for Visualizer rendering data from mocked WS stream.
+- eBPF agent with cgroup resolver, probe manager, and event codec.
+- eBPF programs for process monitoring, syscall tracing, and network probes.
+- Simulation engine for generating realistic heartbeat data.
+- Causal chain analysis and predictive alerting in the Go server.
+- Helm chart and Docker deployment configs.
 
 ## [0.1.0] - 2025-09-03
 ### Added

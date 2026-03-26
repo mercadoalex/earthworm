@@ -48,7 +48,7 @@ jest.mock('./hooks/useEbpfData', () => ({
 jest.mock('./hooks/useWebSocket', () => ({
   useWebSocket: () => {
     const React = require('react');
-    const [msg, setMsg] = React.useState<WebSocketMessage | null>(null);
+    const [msg, setMsg] = (React.useState as Function)(null);
     // Expose setter so the test can push messages
     setWsLastMessage = (m: WebSocketMessage) => setMsg(m);
     wsLastMessage = msg;
