@@ -126,6 +126,17 @@ func (h *Hub) BroadcastPrediction(prediction Prediction) {
 	h.broadcast <- data
 }
 
+// BroadcastTopologyUpdate sends a network topology update to all connected clients.
+func (h *Hub) BroadcastTopologyUpdate(record ConnectionRecord) {
+	msg := WSMessage{Type: "network_topology_update", Payload: record}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal network_topology_update WS message: %v", err)
+		return
+	}
+	h.broadcast <- data
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }

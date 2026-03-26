@@ -17,7 +17,7 @@ func genMonitoredComm(t *rapid.T) [TaskCommLen]byte {
 
 // genValidSyscallEvent generates a KernelEvent with all required syscall fields populated.
 func genValidSyscallEvent(t *rapid.T) *KernelEvent {
-	entryTs := rapid.Uint64Min(1).Draw(t, "entryTs")
+	entryTs := rapid.Uint64Range(1, 1<<62).Draw(t, "entryTs")
 	// exitTs must be >= entryTs and non-zero
 	exitTs := entryTs + rapid.Uint64Range(0, 5_000_000_000).Draw(t, "duration")
 
