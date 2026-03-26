@@ -17,6 +17,8 @@ import HeatmapView from './views/HeatmapView';
 import TimelineView from './views/TimelineView';
 import HistogramView from './views/HistogramView';
 import NodeTable from './views/NodeTable';
+import NetworkTopologyView from './views/NetworkTopologyView';
+import ResourcePressureView from './views/ResourcePressureView';
 
 // --- Toast notification for alerts ---
 interface ToastProps {
@@ -688,6 +690,14 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
 
           {activeView === 'table' && (
             <NodeTable leasesData={leasesData} />
+          )}
+
+          {activeView === 'network-topology' && (
+            <NetworkTopologyView wsLastMessage={lastMessage} />
+          )}
+
+          {activeView === 'resource-pressure' && (
+            <ResourcePressureView events={[]} />
           )}
 
           {/* Persistent NodeTable panel below active chart view */}

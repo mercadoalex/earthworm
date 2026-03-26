@@ -8,6 +8,8 @@ const VIEW_OPTIONS: { key: ViewType; label: string }[] = [
   { key: 'timeline', label: 'Timeline' },
   { key: 'histogram', label: 'Histogram' },
   { key: 'table', label: 'Table' },
+  { key: 'network-topology', label: 'Network Topology' },
+  { key: 'resource-pressure', label: 'Resource Pressure' },
 ];
 
 const ViewSelector: React.FC = () => {

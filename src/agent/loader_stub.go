@@ -19,6 +19,17 @@ type BPFLoaderIface interface {
 // Compile-time check: *BPFLoader must satisfy BPFLoaderIface.
 var _ BPFLoaderIface = (*BPFLoader)(nil)
 
+// Compile-time verification that extended event type constants (defined in
+// extended_event.go) are accessible from the non-Linux build context.
+// These constants are used by macOS tests to reference event types 3–7.
+var (
+	_ = EventTypeVFS
+	_ = EventTypeOOM
+	_ = EventTypeDNS
+	_ = EventTypeCgroup
+	_ = EventTypeSecurity
+)
+
 // BPFProgram is a stub for ebpf.Program on non-Linux platforms.
 type BPFProgram struct {
 	Name   string

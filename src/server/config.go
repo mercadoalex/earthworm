@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ type Config struct {
 	WarningThresholdS  int
 	CriticalThresholdS int
 	WebhookURL         string
+	TopologyWindowS    int
 }
 
 // LoadConfig reads configuration from environment variables with sensible defaults.
@@ -29,6 +31,7 @@ func LoadConfig() Config {
 		WarningThresholdS:  10,
 		CriticalThresholdS: 40,
 		WebhookURL:         "",
+		TopologyWindowS:    300,
 	}
 
 	if v := os.Getenv("EARTHWORM_PORT"); v != "" {
@@ -60,6 +63,15 @@ func LoadConfig() Config {
 	}
 	if v := os.Getenv("EARTHWORM_WEBHOOK_URL"); v != "" {
 		cfg.WebhookURL = v
+	}
+	if v := os.Getenv("EARTHWORM_TOPOLOGY_WINDOW_S"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			if t >= 10 && t <= 86400 {
+				cfg.TopologyWindowS = t
+			} else {
+				log.Printf("EARTHWORM_TOPOLOGY_WINDOW_S=%d out of range [10,86400], using default %d", t, cfg.TopologyWindowS)
+			}
+		}
 	}
 
 	return cfg

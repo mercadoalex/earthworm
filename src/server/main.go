@@ -23,6 +23,7 @@ var (
 	chainBuilder *CausalChainBuilder
 	predEngine   *PredictionEngine
 	replayStore  *ReplayStore
+	topoMap      *NetworkTopologyMap
 	ebpfEnabled  bool
 )
 
@@ -66,9 +67,26 @@ func ebpfEventsHandler(w http.ResponseWriter, r *http.Request) {
 		if predEngine != nil {
 			predEngine.Analyze(event.NodeName, []EnrichedEvent{event})
 		}
+		if topoMap != nil && event.EventType == "network_audit" {
+			topoMap.Record(event)
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+// networkTopologyHandler returns the current network topology as a JSON array of ConnectionRecords.
+func networkTopologyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	records := topoMap.Connections()
+	if records == nil {
+		records = []ConnectionRecord{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(records)
 }
 
 // heartbeatHandler receives heartbeat data via POST.
@@ -188,6 +206,7 @@ func main() {
 	chainBuilder = NewCausalChainBuilder(store, hub)
 	predEngine = NewPredictionEngine(store, hub)
 	replayStore = NewReplayStore(store, defaultRetention)
+	topoMap = NewNetworkTopologyMap(time.Duration(cfg.TopologyWindowS)*time.Second, hub)
 
 	if ebpfEnabled {
 		log.Println("eBPF kernel observability enabled")
@@ -207,6 +226,7 @@ func main() {
 	apiMux.HandleFunc("/api/heartbeat", heartbeatHandler)
 	apiMux.HandleFunc("/api/heartbeats", getHeartbeatsHandler)
 	apiMux.HandleFunc("/api/ebpf/events", ebpfEventsHandler)
+	apiMux.HandleFunc("/api/network/topology", networkTopologyHandler)
 	apiMux.HandleFunc("/api/replay", replayHandler(replayStore))
 	apiMux.HandleFunc("/api/predictions/accuracy", predictionAccuracyHandler(predEngine))
 	topMux.Handle("/api/", LoggingMiddleware(setCORS(apiMux, cfg.CORSOrigins)))

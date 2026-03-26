@@ -76,13 +76,13 @@ export interface ChartDataPoint {
 }
 
 export interface WebSocketMessage {
-  type: 'heartbeat' | 'alert' | 'status' | 'ebpf_event' | 'causal_chain' | 'prediction';
-  payload: HeartbeatEvent | Alert | EnrichedKernelEvent | CausalChainMessage['payload'] | PredictionMessage['payload'] | Record<string, unknown>;
+  type: 'heartbeat' | 'alert' | 'status' | 'ebpf_event' | 'causal_chain' | 'prediction' | 'network_topology_update';
+  payload: HeartbeatEvent | Alert | EnrichedKernelEvent | CausalChainMessage['payload'] | PredictionMessage['payload'] | NetworkTopologyUpdate['payload'] | Record<string, unknown>;
 }
 
 // --- New types for multi-view visualizations ---
 
-export type ViewType = 'line' | 'heatmap' | 'timeline' | 'histogram' | 'table';
+export type ViewType = 'line' | 'heatmap' | 'timeline' | 'histogram' | 'table' | 'network-topology' | 'resource-pressure';
 
 export interface HeatmapCell {
   nodeName: string;
@@ -131,7 +131,7 @@ export interface EnrichedKernelEvent {
   ppid: number;
   comm: string;
   cgroupId: number;
-  eventType: 'syscall' | 'process' | 'network';
+  eventType: 'syscall' | 'process' | 'network' | 'filesystem_io' | 'memory_pressure' | 'dns_resolution' | 'cgroup_resource' | 'network_audit';
   // Syscall-specific
   syscallName?: string;
   returnValue?: number;
@@ -175,4 +175,65 @@ export interface PredictionMessage {
     ttfSeconds: number;
     patterns: string[];
   };
+}
+
+// --- eBPF Advanced Probes: new event variant interfaces ---
+
+export interface FilesystemIOEvent extends EnrichedKernelEvent {
+  eventType: 'filesystem_io';
+  filePath: string;
+  ioLatencyNs: number;
+  bytesXfer: number;
+  slowIO: boolean;
+  ioOpType: 'read' | 'write';
+}
+
+export interface MemoryPressureEvent extends EnrichedKernelEvent {
+  eventType: 'memory_pressure';
+  oomSubType: 'oom_kill' | 'alloc_failure';
+  killedPid?: number;
+  killedComm?: string;
+  oomScoreAdj?: number;
+  pageOrder?: number;
+  gfpFlags?: number;
+}
+
+export interface DNSResolutionEvent extends EnrichedKernelEvent {
+  eventType: 'dns_resolution';
+  domain: string;
+  dnsLatencyNs: number;
+  responseCode: number;
+  timedOut: boolean;
+}
+
+export interface CgroupResourceEvent extends EnrichedKernelEvent {
+  eventType: 'cgroup_resource';
+  cpuUsageNs: number;
+  memoryUsageBytes: number;
+  memoryLimitBytes: number;
+  memoryPressure: boolean;
+}
+
+export interface NetworkAuditEvent extends EnrichedKernelEvent {
+  eventType: 'network_audit';
+  auditDstAddr: string;
+  auditDstPort: number;
+  auditProtocol: 'tcp' | 'udp';
+}
+
+// --- Network Topology types ---
+
+export interface ConnectionRecord {
+  sourcePod: string;
+  sourceNamespace: string;
+  dstAddr: string;
+  dstPort: number;
+  protocol: string;
+  lastSeen: string;
+  nodeName: string;
+}
+
+export interface NetworkTopologyUpdate {
+  type: 'network_topology_update';
+  payload: ConnectionRecord;
 }
