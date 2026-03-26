@@ -4,7 +4,48 @@ import '@testing-library/jest-dom';
 import App from './App';
 import Footer from './Footer';
 import ChartControls from './ChartControls';
+import HeartbeatChart from './HeartbeatChart';
+import { ViewProvider } from './contexts/ViewContext';
 import type { LeasesByNamespace } from './types/heartbeat';
+
+// Mock hooks used by HeartbeatChart
+jest.mock('./hooks/useHeartbeatData', () => ({
+  useHeartbeatData: () => ({
+    leasesData: {
+      'test-ns': [
+        { x: 0, y: 1000000 },
+        { x: 1, y: 1005000 },
+        { x: 2, y: 1010000 },
+      ],
+    },
+    currentHeartbeat: 1010000,
+    step: 'animate',
+    chartData: [
+      { timestamp: 1000000, 'test-ns': 1000000 },
+      { timestamp: 1005000, 'test-ns': 1005000 },
+      { timestamp: 1010000, 'test-ns': 1010000 },
+    ],
+    namespaces: ['test-ns'],
+    currentFileIdx: 0,
+  }),
+}));
+
+jest.mock('./hooks/useEbpfData', () => ({
+  useEbpfData: () => ({
+    showEbpf: false,
+    toggleEbpf: jest.fn(),
+    clearEbpfData: jest.fn(),
+    restoreEbpfData: jest.fn(),
+    getEbpfMarkers: () => [],
+  }),
+}));
+
+jest.mock('./hooks/useWebSocket', () => ({
+  useWebSocket: () => ({
+    status: 'connected',
+    lastMessage: null,
+  }),
+}));
 
 // Mock fetch globally to prevent real network calls
 beforeEach(() => {
@@ -172,5 +213,50 @@ describe('ChartControls component', () => {
   it('renders anomaly summary section', () => {
     render(<ChartControls {...defaultProps} />);
     expect(screen.getByText(/Anomaly Summary/i)).toBeInTheDocument();
+  });
+});
+
+
+// --- HeartbeatChart rendering tests ---
+// Requirements: 12.5
+describe('HeartbeatChart component', () => {
+  it('renders without crashing with mock data', () => {
+    const { container } = render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+    expect(container).toBeTruthy();
+  });
+
+  it('renders the chart controls section', () => {
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+    const nav = screen.getByRole('navigation', { name: /chart controls/i });
+    expect(nav).toBeInTheDocument();
+  });
+
+  it('renders the view selector tabs', () => {
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+    // ViewSelector renders tabs inside a nav with aria-label
+    const viewNav = screen.getByRole('navigation', { name: /view selector/i });
+    expect(viewNav).toBeInTheDocument();
+  });
+
+  it('does not render connection status banner when connected', () => {
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+    // ConnectionStatus returns null when status is 'connected'
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

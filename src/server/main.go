@@ -106,6 +106,10 @@ func heartbeatHandler(w http.ResponseWriter, r *http.Request) {
 
 // getHeartbeatsHandler serves heartbeat data via GET.
 func getHeartbeatsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	// Use a wide time range to return all heartbeats
 	from := time.Time{}
 	to := time.Now().Add(24 * time.Hour)
