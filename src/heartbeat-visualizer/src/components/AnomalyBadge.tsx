@@ -34,7 +34,7 @@ const AnomalyBadge: React.FC<AnomalyBadgeProps> = ({ leasesData, onZoomToAnomaly
         padding: '4px 12px',
         fontSize: '0.8rem',
         background: count > 0 ? '#5a1a1a' : '#333',
-        color: count > 0 ? '#ff9999' : '#888',
+        color: count > 0 ? '#ff9999' : '#aaa',
         border: `1px solid ${count > 0 ? '#ff4444' : '#555'}`,
         borderRadius: 16,
         cursor: count > 0 && onZoomToAnomaly ? 'pointer' : 'default',

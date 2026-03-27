@@ -40,15 +40,36 @@ jest.mock('./hooks/useEbpfData', () => ({
   }),
 }));
 
+const mockUseWebSocket = jest.fn(() => ({
+  status: 'connected' as string,
+  lastMessage: null,
+}));
 jest.mock('./hooks/useWebSocket', () => ({
-  useWebSocket: () => ({
-    status: 'connected',
-    lastMessage: null,
-  }),
+  useWebSocket: () => mockUseWebSocket(),
+}));
+
+const mockUseLiveEvents = jest.fn(() => ({
+  liveEvents: [],
+  alerts: [] as any[],
+  dismissAlert: jest.fn(),
+}));
+jest.mock('./hooks/useLiveEvents', () => ({
+  useLiveEvents: () => mockUseLiveEvents(),
 }));
 
 // Mock fetch globally to prevent real network calls
 beforeEach(() => {
+  // Reset hook mocks to defaults
+  mockUseWebSocket.mockReturnValue({
+    status: 'connected',
+    lastMessage: null,
+  });
+  mockUseLiveEvents.mockReturnValue({
+    liveEvents: [],
+    alerts: [],
+    dismissAlert: jest.fn(),
+  });
+
   global.fetch = jest.fn(() =>
     Promise.resolve({
       ok: true,
@@ -106,6 +127,12 @@ describe('App component', () => {
   it('renders the footer', () => {
     render(<App />);
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('renders semantic main element', () => {
+    render(<App />);
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
   });
 });
 
@@ -258,5 +285,127 @@ describe('HeartbeatChart component', () => {
     );
     // ConnectionStatus returns null when status is 'connected'
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+// --- Connection status indicator tests ---
+// Requirements: 5.6, 9.2
+describe('Connection status indicator', () => {
+  it('shows "Disconnected" when WebSocket is down', () => {
+    mockUseWebSocket.mockReturnValue({
+      status: 'disconnected',
+      lastMessage: null,
+    });
+
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+
+    const statusEl = screen.getByRole('status');
+    expect(statusEl).toBeInTheDocument();
+    expect(statusEl).toHaveTextContent('Disconnected');
+  });
+
+  it('has aria-live="polite" for screen reader announcements', () => {
+    mockUseWebSocket.mockReturnValue({
+      status: 'disconnected',
+      lastMessage: null,
+    });
+
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+
+    const statusEl = screen.getByRole('status');
+    expect(statusEl).toHaveAttribute('aria-live', 'polite');
+  });
+});
+
+// --- Alert toast notification tests ---
+// Requirements: 7.7
+describe('Alert toast notification', () => {
+  it('renders toast with severity and node name', () => {
+    mockUseLiveEvents.mockReturnValue({
+      liveEvents: [],
+      alerts: [
+        {
+          nodeName: 'node-1',
+          namespace: 'kube-system',
+          gapSeconds: 25.5,
+          severity: 'warning',
+          timestamp: Date.now(),
+        },
+      ],
+      dismissAlert: jest.fn(),
+    });
+
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+
+    const alertEl = screen.getByRole('alert');
+    expect(alertEl).toBeInTheDocument();
+    expect(alertEl).toHaveTextContent('WARNING');
+    expect(alertEl).toHaveTextContent('node-1');
+    expect(alertEl).toHaveTextContent('kube-system');
+    expect(alertEl).toHaveTextContent('25.5s');
+  });
+
+  it('renders critical alert toast with correct severity', () => {
+    mockUseLiveEvents.mockReturnValue({
+      liveEvents: [],
+      alerts: [
+        {
+          nodeName: 'node-2',
+          namespace: 'default',
+          gapSeconds: 55.0,
+          severity: 'critical',
+          timestamp: Date.now(),
+        },
+      ],
+      dismissAlert: jest.fn(),
+    });
+
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+
+    const alertEl = screen.getByRole('alert');
+    expect(alertEl).toBeInTheDocument();
+    expect(alertEl).toHaveTextContent('CRITICAL');
+    expect(alertEl).toHaveTextContent('node-2');
+  });
+
+  it('renders dismiss button with ARIA label on alert toast', () => {
+    mockUseLiveEvents.mockReturnValue({
+      liveEvents: [],
+      alerts: [
+        {
+          nodeName: 'node-1',
+          namespace: 'kube-system',
+          gapSeconds: 15.0,
+          severity: 'warning',
+          timestamp: Date.now(),
+        },
+      ],
+      dismissAlert: jest.fn(),
+    });
+
+    render(
+      <ViewProvider>
+        <HeartbeatChart />
+      </ViewProvider>,
+    );
+
+    const dismissBtn = screen.getByLabelText(/dismiss alert/i);
+    expect(dismissBtn).toBeInTheDocument();
   });
 });

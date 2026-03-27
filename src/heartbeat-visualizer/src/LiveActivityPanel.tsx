@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { config } from './config';
-import type { HeartbeatEvent, Alert, EnrichedKernelEvent } from './types/heartbeat';
+import type { HeartbeatEvent, Alert, EnrichedKernelEvent, FilesystemIOEvent, MemoryPressureEvent, DNSResolutionEvent, CgroupResourceEvent, NetworkAuditEvent } from './types/heartbeat';
 
 export type LiveEvent =
   | { kind: 'heartbeat'; data: HeartbeatEvent; receivedAt: number }
@@ -43,10 +43,10 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
   });
 
   const renderEbpfEvent = (e: EnrichedKernelEvent, idx: number, time: string) => {
-    const any = e as any;
     switch (e.eventType) {
       case 'filesystem_io': {
-        const borderColor = any.slowIO ? config.colors.warning : '#6699ff';
+        const fsEvent = e as FilesystemIOEvent;
+        const borderColor = fsEvent.slowIO ? config.colors.warning : '#6699ff';
         return (
           <div key={idx} data-testid="ebpf-filesystem-io" style={{
             display: 'flex', alignItems: 'center', padding: '4px 16px',
@@ -55,14 +55,15 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
             <span style={{ color: '#666', minWidth: '70px', fontFamily: 'monospace' }}>{time}</span>
             <span style={badgeStyle('#6699ff')}>FS I/O</span>
             <span style={{ color: '#ccc' }}>
-              {any.filePath || '(unknown)'} — {(any.ioLatencyNs / 1e6).toFixed(1)}ms {any.ioOpType}
+              {fsEvent.filePath || '(unknown)'} — {(fsEvent.ioLatencyNs / 1e6).toFixed(1)}ms {fsEvent.ioOpType}
             </span>
-            {any.slowIO && <span style={badgeStyle(config.colors.warning)}>SLOW</span>}
+            {fsEvent.slowIO && <span style={badgeStyle(config.colors.warning)}>SLOW</span>}
           </div>
         );
       }
       case 'memory_pressure': {
-        const borderColor = any.oomSubType === 'oom_kill' ? config.colors.death : config.colors.warning;
+        const memEvent = e as MemoryPressureEvent;
+        const borderColor = memEvent.oomSubType === 'oom_kill' ? config.colors.death : config.colors.warning;
         return (
           <div key={idx} data-testid="ebpf-memory-pressure" style={{
             display: 'flex', alignItems: 'center', padding: '4px 16px',
@@ -71,18 +72,19 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
           }}>
             <span style={{ color: '#666', minWidth: '70px', fontFamily: 'monospace' }}>{time}</span>
             <span style={badgeStyle(borderColor)}>
-              {any.oomSubType === 'oom_kill' ? 'OOM KILL' : 'ALLOC FAIL'}
+              {memEvent.oomSubType === 'oom_kill' ? 'OOM KILL' : 'ALLOC FAIL'}
             </span>
             <span style={{ color: '#ccc' }}>
-              {any.oomSubType === 'oom_kill'
-                ? `killed ${any.killedComm || 'unknown'} (PID ${any.killedPid ?? '?'}) score=${any.oomScoreAdj ?? '?'}`
-                : `order=${any.pageOrder ?? '?'} gfp=0x${(any.gfpFlags ?? 0).toString(16)}`}
+              {memEvent.oomSubType === 'oom_kill'
+                ? `killed ${memEvent.killedComm || 'unknown'} (PID ${memEvent.killedPid ?? '?'}) score=${memEvent.oomScoreAdj ?? '?'}`
+                : `order=${memEvent.pageOrder ?? '?'} gfp=0x${(memEvent.gfpFlags ?? 0).toString(16)}`}
             </span>
           </div>
         );
       }
       case 'dns_resolution': {
-        const borderColor = any.timedOut ? config.colors.warning : '#66cccc';
+        const dnsEvent = e as DNSResolutionEvent;
+        const borderColor = dnsEvent.timedOut ? config.colors.warning : '#66cccc';
         return (
           <div key={idx} data-testid="ebpf-dns-resolution" style={{
             display: 'flex', alignItems: 'center', padding: '4px 16px',
@@ -91,16 +93,17 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
             <span style={{ color: '#666', minWidth: '70px', fontFamily: 'monospace' }}>{time}</span>
             <span style={badgeStyle('#66cccc')}>DNS</span>
             <span style={{ color: '#ccc' }}>
-              {any.domain || '(unknown)'} — {(any.dnsLatencyNs / 1e6).toFixed(1)}ms rcode={any.responseCode}
+              {dnsEvent.domain || '(unknown)'} — {(dnsEvent.dnsLatencyNs / 1e6).toFixed(1)}ms rcode={dnsEvent.responseCode}
             </span>
-            {any.timedOut && <span style={badgeStyle(config.colors.warning)}>TIMEOUT</span>}
+            {dnsEvent.timedOut && <span style={badgeStyle(config.colors.warning)}>TIMEOUT</span>}
           </div>
         );
       }
       case 'cgroup_resource': {
-        const borderColor = any.memoryPressure ? config.colors.warning : '#99cc66';
-        const memMB = (any.memoryUsageBytes / (1024 * 1024)).toFixed(0);
-        const limitMB = (any.memoryLimitBytes / (1024 * 1024)).toFixed(0);
+        const cgroupEvent = e as CgroupResourceEvent;
+        const borderColor = cgroupEvent.memoryPressure ? config.colors.warning : '#99cc66';
+        const memMB = (cgroupEvent.memoryUsageBytes / (1024 * 1024)).toFixed(0);
+        const limitMB = (cgroupEvent.memoryLimitBytes / (1024 * 1024)).toFixed(0);
         return (
           <div key={idx} data-testid="ebpf-cgroup-resource" style={{
             display: 'flex', alignItems: 'center', padding: '4px 16px',
@@ -109,13 +112,14 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
             <span style={{ color: '#666', minWidth: '70px', fontFamily: 'monospace' }}>{time}</span>
             <span style={badgeStyle('#99cc66')}>CGROUP</span>
             <span style={{ color: '#ccc' }}>
-              {e.podName || e.comm} — mem {memMB}/{limitMB}MB cpu {(any.cpuUsageNs / 1e9).toFixed(1)}s
+              {e.podName || e.comm} — mem {memMB}/{limitMB}MB cpu {(cgroupEvent.cpuUsageNs / 1e9).toFixed(1)}s
             </span>
-            {any.memoryPressure && <span style={badgeStyle(config.colors.warning)}>PRESSURE</span>}
+            {cgroupEvent.memoryPressure && <span style={badgeStyle(config.colors.warning)}>PRESSURE</span>}
           </div>
         );
       }
       case 'network_audit': {
+        const netEvent = e as NetworkAuditEvent;
         return (
           <div key={idx} data-testid="ebpf-network-audit" style={{
             display: 'flex', alignItems: 'center', padding: '4px 16px',
@@ -124,7 +128,7 @@ const LiveActivityPanel: React.FC<LiveActivityPanelProps> = ({ events, wsStatus 
             <span style={{ color: '#666', minWidth: '70px', fontFamily: 'monospace' }}>{time}</span>
             <span style={badgeStyle('#cc99ff')}>NET AUDIT</span>
             <span style={{ color: '#ccc' }}>
-              {e.podName || e.comm} → {any.auditDstAddr}:{any.auditDstPort} ({any.auditProtocol})
+              {e.podName || e.comm} → {netEvent.auditDstAddr}:{netEvent.auditDstPort} ({netEvent.auditProtocol})
             </span>
           </div>
         );

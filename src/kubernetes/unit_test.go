@@ -93,6 +93,9 @@ func TestUnit_GenerateMockNodes_ValidFields(t *testing.T) {
 		if node.Status == "" {
 			t.Fatalf("node[%d]: Status is empty", i)
 		}
+		if node.LastLease.IsZero() {
+			t.Fatalf("node[%d]: LastLease is zero", i)
+		}
 	}
 }
 

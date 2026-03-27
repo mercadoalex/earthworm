@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceDot, ReferenceArea } from 'recharts';
 import ChartControls from './ChartControls';
 import { config } from './config';
@@ -9,7 +9,7 @@ import { useEbpfData } from './hooks/useEbpfData';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLiveEvents } from './hooks/useLiveEvents';
 import { useViewContext } from './contexts/ViewContext';
-import type { EbpfEvent, Alert } from './types/heartbeat';
+import type { EbpfEvent, Alert, WebSocketMessage, HeartbeatEvent, ChartDataPoint } from './types/heartbeat';
 import LiveActivityPanel from './LiveActivityPanel';
 import ViewSelector from './ViewSelector';
 import AnomalyBadge from './components/AnomalyBadge';
@@ -198,10 +198,61 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     leasesData,
     currentHeartbeat,
     step,
-    chartData,
-    namespaces,
+    chartData: baseChartData,
+    namespaces: baseNamespaces,
     currentFileIdx,
   } = useHeartbeatData(cluster?.manifestUrl, cluster?.datasetPath);
+
+  const { status: wsStatus, lastMessage } = useWebSocket(cluster?.wsEndpoint);
+
+  // --- Live events and alerts (isolated from chart rendering via useLiveEvents) ---
+  const { liveEvents, alerts, dismissAlert } = useLiveEvents(lastMessage);
+
+  // --- Append incoming WS heartbeat events to chart data (Req 5.4) ---
+  const [wsChartPoints, setWsChartPoints] = useState<ChartDataPoint[]>([]);
+  const lastAppendedMsgRef = useRef<WebSocketMessage | null>(null);
+
+  useEffect(() => {
+    if (
+      !lastMessage ||
+      lastMessage.type !== 'heartbeat' ||
+      lastMessage === lastAppendedMsgRef.current
+    ) {
+      return;
+    }
+    lastAppendedMsgRef.current = lastMessage;
+    const hb = lastMessage.payload as HeartbeatEvent;
+    setWsChartPoints((prev) => {
+      const nextIndex = (baseChartData.length > 0 ? baseChartData.length : 0) + prev.length;
+      const point: ChartDataPoint = {
+        index: nextIndex,
+        timestamp: hb.timestamp,
+        [hb.namespace]: nextIndex,
+      };
+      return [...prev, point];
+    });
+  }, [lastMessage, baseChartData.length]);
+
+  // Merge base chart data with WS-appended points
+  const chartData = useMemo(
+    () => [...baseChartData, ...wsChartPoints],
+    [baseChartData, wsChartPoints],
+  );
+
+  // Merge namespaces: base namespaces + any new namespaces from WS events
+  const namespaces = useMemo(() => {
+    const wsNs = new Set<string>();
+    for (const pt of wsChartPoints) {
+      for (const key of Object.keys(pt)) {
+        if (key !== 'index' && key !== 'timestamp') wsNs.add(key);
+      }
+    }
+    const merged = [...baseNamespaces];
+    wsNs.forEach((ns) => {
+      if (!merged.includes(ns)) merged.push(ns);
+    });
+    return merged;
+  }, [baseNamespaces, wsChartPoints]);
 
   const {
     showEbpf,
@@ -210,11 +261,6 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     restoreEbpfData,
     ebpfMarkers,
   } = useEbpfData(currentFileIdx, step, cluster?.ebpfManifestUrl, cluster?.datasetPath, chartData, namespaces);
-
-  const { status: wsStatus, lastMessage } = useWebSocket(cluster?.wsEndpoint);
-
-  // --- Live events and alerts (isolated from chart rendering via useLiveEvents) ---
-  const { liveEvents, alerts, dismissAlert } = useLiveEvents(lastMessage);
 
   // --- ViewContext for shared zoom/pan state ---
   const { activeView, xDomain, setXDomain } = useViewContext();
@@ -317,12 +363,12 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = entry.contentRect.width;
-        setChartWidth(Math.max(280, Math.min(w, 1920)));
+        setChartWidth(Math.max(320, Math.min(w, 1920)));
       }
     });
     observer.observe(el);
     // Set initial width
-    setChartWidth(Math.max(280, Math.min(el.clientWidth, 1920)));
+    setChartWidth(Math.max(320, Math.min(el.clientWidth, 1920)));
     return () => observer.disconnect();
   }, []);
 
@@ -447,7 +493,7 @@ const HeartbeatChart: React.FC<HeartbeatChartProps> = ({ cluster }) => {
 
       {/* Main chart UI */}
       {(step === 'animate' || step === 'pause') && (
-        <div ref={chartWrapperRef} style={{ width: '100%', maxWidth: '1920px', minWidth: '280px' }}>
+        <div ref={chartWrapperRef} style={{ width: '100%', maxWidth: '1920px', minWidth: '320px' }}>
           <ChartControls
             noise={noise}
             onNoiseToggle={() => setNoise((n) => !n)}

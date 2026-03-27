@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { config } from '../config';
-import type { EnrichedKernelEvent } from '../types/heartbeat';
+import type { EnrichedKernelEvent, CgroupResourceEvent } from '../types/heartbeat';
 
 interface ResourcePressureViewProps {
   events: EnrichedKernelEvent[];
@@ -21,17 +21,17 @@ const ResourcePressureView: React.FC<ResourcePressureViewProps> = ({ events }) =
     const map = new Map<string, PodResource>();
     for (const e of events) {
       if (e.eventType !== 'cgroup_resource') continue;
-      const any = e as any;
+      const cgroupEvent = e as CgroupResourceEvent;
       const key = `${e.podName || e.comm}|${e.namespace || ''}`;
       const existing = map.get(key);
       if (!existing || e.timestamp > existing.lastSeen) {
         map.set(key, {
           podName: e.podName || e.comm,
           namespace: e.namespace || '',
-          cpuUsageNs: any.cpuUsageNs ?? 0,
-          memoryUsageBytes: any.memoryUsageBytes ?? 0,
-          memoryLimitBytes: any.memoryLimitBytes ?? 0,
-          memoryPressure: any.memoryPressure ?? false,
+          cpuUsageNs: cgroupEvent.cpuUsageNs ?? 0,
+          memoryUsageBytes: cgroupEvent.memoryUsageBytes ?? 0,
+          memoryLimitBytes: cgroupEvent.memoryLimitBytes ?? 0,
+          memoryPressure: cgroupEvent.memoryPressure ?? false,
           lastSeen: e.timestamp,
         });
       }

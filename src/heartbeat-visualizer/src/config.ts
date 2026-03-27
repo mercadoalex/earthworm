@@ -16,6 +16,14 @@ export const clusters: ClusterConfig[] = [
     wsEndpoint: 'ws://localhost:8080/ws/heartbeats',
     apiBaseUrl: 'http://localhost:8080',
   },
+  {
+    name: 'staging-eu-central-1',
+    manifestUrl: '/mocking_data/leases.manifest.json',
+    ebpfManifestUrl: '/mocking_data/ebpf-leases.manifest.json',
+    datasetPath: '/mocking_data/',
+    wsEndpoint: 'ws://localhost:8081/ws/heartbeats',
+    apiBaseUrl: 'http://localhost:8081',
+  },
 ];
 
 export const config = {

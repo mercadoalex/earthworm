@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { config } from '../config';
-import type { ConnectionRecord } from '../types/heartbeat';
+import type { ConnectionRecord, WebSocketMessage } from '../types/heartbeat';
 
 interface NetworkTopologyViewProps {
-  wsLastMessage?: { type: string; payload?: unknown } | null;
+  wsLastMessage?: WebSocketMessage | null;
 }
 
 const NetworkTopologyView: React.FC<NetworkTopologyViewProps> = ({ wsLastMessage }) => {
@@ -31,8 +31,8 @@ const NetworkTopologyView: React.FC<NetworkTopologyViewProps> = ({ wsLastMessage
 
   // Listen for network_topology_update WebSocket messages
   useEffect(() => {
-    if (!wsLastMessage || (wsLastMessage as any).type !== 'network_topology_update') return;
-    const record = (wsLastMessage as any).payload as ConnectionRecord;
+    if (!wsLastMessage || wsLastMessage.type !== 'network_topology_update') return;
+    const record = wsLastMessage.payload as ConnectionRecord;
     if (!record) return;
     setConnections((prev) => {
       const key = `${record.sourcePod}|${record.dstAddr}|${record.dstPort}|${record.protocol}`;

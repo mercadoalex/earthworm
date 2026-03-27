@@ -132,7 +132,9 @@ describe('E2E: Visualizer renders data point from mocked WS stream', () => {
 
     // The LiveActivityPanel should now render the heartbeat event
     expect(screen.getByText(/ws-node-42/)).toBeInTheDocument();
-    expect(screen.getByText(/production/)).toBeInTheDocument();
+    // "production" may appear in both the chart legend and the live feed
+    const productionElements = screen.getAllByText(/production/);
+    expect(productionElements.length).toBeGreaterThanOrEqual(1);
 
     // Restore
     global.requestAnimationFrame = originalRAF;
