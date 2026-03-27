@@ -82,9 +82,9 @@ afterEach(() => {
 // --- App rendering tests ---
 // Requirements: 12.7, 9.1, 9.2
 describe('App component', () => {
-  it('renders the header with "Heartbeat Visualizer"', () => {
+  it('renders the header with "Earthworm Observability"', () => {
     render(<App />);
-    expect(screen.getByText(/Heartbeat Visualizer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Earthworm Observability/i)).toBeInTheDocument();
   });
 
   it('renders semantic header element with role="banner"', () => {
@@ -100,7 +100,7 @@ describe('App component', () => {
     // Verify footer is present
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
     // Verify heading text
-    expect(screen.getByText(/Heartbeat Visualizer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Earthworm Observability/i)).toBeInTheDocument();
   });
 
   it('renders the footer', () => {

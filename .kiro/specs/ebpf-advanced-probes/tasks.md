@@ -248,7 +248,7 @@ Extends the Earthworm eBPF platform with five new probe types (event_type 3–7)
 - [x] 13. Checkpoint — Ensure visualizer builds and all TypeScript tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Implement BPF C programs (Linux-only)
+- [x] 14. Implement BPF C programs (Linux-only)
   - [ ] 14.1 Create `src/ebpf/headers/extended_common.h` with `extended_event` C struct and payload structs
     - Define `struct extended_event` with flexible array member payload
     - Define `struct vfs_payload`, `struct oom_payload`, `struct dns_payload`, `struct cgroup_resource_payload`, `struct network_audit_payload`

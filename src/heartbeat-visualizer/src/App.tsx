@@ -14,7 +14,14 @@ const App: React.FC = () => {
     <ViewProvider>
       <div className="App">
         <header className="App-header" role="banner">
-          <h1>Heartbeat Visualizer</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+            <img
+              src={`${process.env.PUBLIC_URL}/logo_transparente.png`}
+              alt="Earthworm Logo"
+              style={{ height: '48px', width: 'auto' }}
+            />
+            <h1 style={{ margin: 0 }}>Earthworm Observability</h1>
+          </div>
           <ClusterSelector
             clusters={clusters}
             selectedIndex={selectedClusterIdx}
