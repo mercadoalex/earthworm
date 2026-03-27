@@ -38,11 +38,11 @@ coverage/
 *.swp
 *.swo
 
-# Compiled server binary
-server
+# Compiled server binary (in src/server/ directory)
+src/server/server
 
-# Kiro specs (local working files)
-.kiro/specs/
+# Kiro specs config files
+.kiro/specs/*/.config.kiro
 
 # Test failure artifacts
 *.fail
