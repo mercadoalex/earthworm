@@ -38,7 +38,8 @@ coverage/
 *.swp
 *.swo
 
-# Compiled server binary (in src/server/ directory)
+# Compiled server binary
+/server
 src/server/server
 
 # Kiro specs config files
