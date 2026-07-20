@@ -1,0 +1,20 @@
+name: "AI unavailable — all metrics normal, no rule triggered"
+inputs:
+  heartbeat:
+    node_id: "node-worker-07"
+    cpu_usage: 30.0
+    memory_usage: 40.0
+    disk_io: 50.0
+    network_io: 100.0
+    latency: 20.0
+  config:
+    threshold: 0.75
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: null
+expected:
+  action_taken: false
+  action_type: ""
+  was_rule_based: true

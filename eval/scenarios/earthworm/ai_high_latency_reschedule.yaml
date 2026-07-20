@@ -1,0 +1,21 @@
+name: "AI score with high latency triggers workload reschedule"
+inputs:
+  heartbeat:
+    node_id: "node-worker-03"
+    cpu_usage: 70.0
+    memory_usage: 55.0
+    disk_io: 200.0
+    network_io: 800.0
+    latency: 650.0
+  config:
+    threshold: 0.70
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: 0.82
+expected:
+  action_taken: true
+  action_type: "workload_reschedule"
+  was_rule_based: false
+  min_score: 0.70

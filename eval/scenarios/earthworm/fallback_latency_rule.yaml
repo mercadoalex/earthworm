@@ -1,0 +1,22 @@
+name: "AI unavailable — latency rule triggers workload reschedule"
+inputs:
+  heartbeat:
+    node_id: "node-worker-06"
+    cpu_usage: 40.0
+    memory_usage: 55.0
+    disk_io: 110.0
+    network_io: 600.0
+    latency: 720.0
+  config:
+    threshold: 0.75
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: null
+expected:
+  action_taken: true
+  action_type: "workload_reschedule"
+  was_rule_based: true
+  triggered_rule: "latency"
+  min_score: 0.90

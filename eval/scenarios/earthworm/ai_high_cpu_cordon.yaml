@@ -1,0 +1,22 @@
+name: "AI score triggers node cordon on high CPU"
+inputs:
+  heartbeat:
+    node_id: "node-worker-01"
+    cpu_usage: 95.2
+    memory_usage: 60.0
+    disk_io: 120.5
+    network_io: 450.0
+    latency: 80.0
+  config:
+    threshold: 0.75
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: 0.88
+expected:
+  action_taken: true
+  action_type: "node_cordon"
+  was_rule_based: false
+  min_score: 0.75
+  max_score: 1.0

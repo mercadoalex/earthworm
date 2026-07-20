@@ -1,0 +1,22 @@
+name: "AI unavailable — memory rule triggers pod restart"
+inputs:
+  heartbeat:
+    node_id: "node-worker-05"
+    cpu_usage: 50.0
+    memory_usage: 92.0
+    disk_io: 90.0
+    network_io: 250.0
+    latency: 60.0
+  config:
+    threshold: 0.75
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: null
+expected:
+  action_taken: true
+  action_type: "pod_restart"
+  was_rule_based: true
+  triggered_rule: "memory"
+  min_score: 0.85

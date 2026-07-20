@@ -1,0 +1,21 @@
+name: "AI score with high memory triggers pod restart"
+inputs:
+  heartbeat:
+    node_id: "node-worker-08"
+    cpu_usage: 55.0
+    memory_usage: 91.0
+    disk_io: 70.0
+    network_io: 180.0
+    latency: 45.0
+  config:
+    threshold: 0.60
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: 0.78
+expected:
+  action_taken: true
+  action_type: "pod_restart"
+  was_rule_based: false
+  min_score: 0.60

@@ -1,0 +1,21 @@
+name: "AI score below threshold — no action taken"
+inputs:
+  heartbeat:
+    node_id: "node-worker-02"
+    cpu_usage: 45.0
+    memory_usage: 50.0
+    disk_io: 80.0
+    network_io: 200.0
+    latency: 30.0
+  config:
+    threshold: 0.75
+    rule_thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 85.0
+      latency_threshold: 500.0
+  ai_score: 0.42
+expected:
+  action_taken: false
+  action_type: ""
+  was_rule_based: false
+  max_score: 0.75
